@@ -1,0 +1,141 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  STUDENT
+  PROFESSIONAL
+  COMPANY
+  ADMIN
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      UserRole @default(STUDENT)
+  avatar    String?
+  bio       String?
+  skills    String[]
+  company   String?
+  location  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  projects        Project[]
+  events          Event[]
+  jobs            Job[]
+  feedback        ProjectFeedback[]
+  jobApplications JobApplication[]
+
+  @@map("users")
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId    String
+  technologies String[]
+  githubUrl   String?
+  liveUrl     String?
+  imageUrl    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  feedback ProjectFeedback[]
+
+  @@map("projects")
+}
+
+model ProjectFeedback {
+  id        String   @id @default(cuid())
+  content   String
+  rating    Int      @db.SmallInt
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId  String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  createdAt DateTime @default(now())
+
+  @@map("project_feedback")
+}
+
+enum EventType {
+  WORKSHOP
+  NETWORKING
+  HACKATHON
+  SEMINAR
+}
+
+model Event {
+  id               String    @id @default(cuid())
+  title            String
+  description      String
+  organizer        User      @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+  organizerId      String
+  date             DateTime
+  location         String
+  type             EventType
+  maxAttendees     Int?
+  currentAttendees Int       @default(0)
+  imageUrl         String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@map("events")
+}
+
+enum JobType {
+  FULL_TIME
+  PART_TIME
+  INTERNSHIP
+  CONTRACT
+}
+
+model Job {
+  id           String   @id @default(cuid())
+  title        String
+  company      User     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId    String
+  description  String
+  requirements String[]
+  location     String
+  type         JobType
+  salary       String?
+  remote       Boolean  @default(false)
+  postedAt     DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  applicants   JobApplication[]
+
+  @@map("jobs")
+}
+
+model JobApplication {
+  id          String   @id @default(cuid())
+  job         Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  jobId       String
+  applicant   User     @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  applicantId String
+  appliedAt   DateTime @default(now())
+
+  @@unique([jobId, applicantId])
+  @@map("job_applications")
+}
