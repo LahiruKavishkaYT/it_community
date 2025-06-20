@@ -36,11 +36,12 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  projects        Project[]
-  events          Event[]
-  jobs            Job[]
-  feedback        ProjectFeedback[]
-  jobApplications JobApplication[]
+  projects          Project[]
+  events            Event[]
+  jobs              Job[]
+  feedback          ProjectFeedback[]
+  jobApplications   JobApplication[]
+  eventAttendances  EventAttendee[]
 
   @@map("users")
 }
@@ -98,7 +99,22 @@ model Event {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
+  // Relations
+  attendees        EventAttendee[]
+
   @@map("events")
+}
+
+model EventAttendee {
+  id          String   @id @default(cuid())
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  eventId     String
+  applicant   User     @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  applicantId String
+  registeredAt DateTime @default(now())
+
+  @@unique([eventId, applicantId])
+  @@map("event_attendees")
 }
 
 enum JobType {

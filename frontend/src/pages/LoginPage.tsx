@@ -10,7 +10,7 @@ const LoginPage: React.FC = () => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    role: 'student' as UserRole
+    role: 'STUDENT' as UserRole
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   
@@ -18,9 +18,9 @@ const LoginPage: React.FC = () => {
   const navigate = useNavigate();
 
   const roleOptions = [
-    { value: 'student' as UserRole, label: 'Student', icon: GraduationCap },
-    { value: 'professional' as UserRole, label: 'IT Professional', icon: Users },
-    { value: 'company' as UserRole, label: 'Company', icon: Building2 }
+    { value: 'STUDENT' as UserRole, label: 'Student', icon: GraduationCap },
+    { value: 'PROFESSIONAL' as UserRole, label: 'IT Professional', icon: Users },
+    { value: 'COMPANY' as UserRole, label: 'Company', icon: Building2 }
   ];
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -54,7 +54,7 @@ const LoginPage: React.FC = () => {
     }
 
     try {
-      await login(formData.email, formData.password, formData.role);
+      await login(formData.email, formData.password);
       navigate('/dashboard');
     } catch (error) {
       setErrors({ submit: 'Invalid credentials. Please try again.' });

@@ -1,23 +1,12 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException, ConflictException } from '@nestjs/common';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { Event } from '../../../generated/prisma';
 
-// Temporary interface for event attendee tracking
-// In a real scenario, this would be a proper Prisma model
-interface EventAttendee {
-  eventId: string;
-  userId: string;
-  registeredAt: Date;
-}
-
 @Injectable()
 export class EventsService {
-  // Temporary in-memory storage for attendees
-  // In production, this should be a proper database table
-  private eventAttendees: EventAttendee[] = [];
-
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll(): Promise<Event[]> {
@@ -135,11 +124,12 @@ export class EventsService {
       throw new ForbiddenException('You can only delete events that you organized');
     }
 
-    // Remove all attendee registrations for this event
-    this.eventAttendees = this.eventAttendees.filter(
-      attendee => attendee.eventId !== id
-    );
+    // Delete all attendee registrations for this event first
+    await this.prisma.eventAttendee.deleteMany({
+      where: { eventId: id },
+    });
 
+    // Then delete the event
     await this.prisma.event.delete({
       where: { id },
     });
@@ -160,15 +150,6 @@ export class EventsService {
       throw new BadRequestException('Cannot register for past events');
     }
 
-    // Check if user is already registered
-    const existingRegistration = this.eventAttendees.find(
-      attendee => attendee.eventId === eventId && attendee.userId === userId
-    );
-
-    if (existingRegistration) {
-      throw new ConflictException('You are already registered for this event');
-    }
-
     // Check if event has reached maximum capacity
     if (event.maxAttendees && event.currentAttendees >= event.maxAttendees) {
       throw new BadRequestException('Event has reached maximum capacity');
@@ -179,35 +160,50 @@ export class EventsService {
       throw new BadRequestException('Event organizers cannot register for their own events');
     }
 
-    // Add registration to temporary storage
-    this.eventAttendees.push({
-      eventId,
-      userId,
-      registeredAt: new Date(),
-    });
-
-    // Update current attendees count
-    await this.prisma.event.update({
-      where: { id: eventId },
-      data: {
-        currentAttendees: {
-          increment: 1,
+    try {
+      // Create the event attendee record
+      await this.prisma.eventAttendee.create({
+        data: {
+          eventId,
+          applicantId: userId,
         },
-      },
-    });
+      });
 
-    return { message: 'Successfully registered for the event' };
+      // Update current attendees count
+      await this.prisma.event.update({
+        where: { id: eventId },
+        data: {
+          currentAttendees: {
+            increment: 1,
+          },
+        },
+      });
+
+      return { message: 'Successfully registered for the event' };
+    } catch (error) {
+      // Handle unique constraint violation (user already registered)
+      if (error instanceof PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException('You are already registered for this event');
+      }
+      throw error;
+    }
   }
 
   async getEventAttendees(eventId: string): Promise<string[]> {
-    return this.eventAttendees
-      .filter(attendee => attendee.eventId === eventId)
-      .map(attendee => attendee.userId);
+    const attendees = await this.prisma.eventAttendee.findMany({
+      where: { eventId },
+      select: { applicantId: true },
+    });
+    
+    return attendees.map(attendee => attendee.applicantId);
   }
 
   async getUserRegistrations(userId: string): Promise<string[]> {
-    return this.eventAttendees
-      .filter(attendee => attendee.userId === userId)
-      .map(attendee => attendee.eventId);
+    const registrations = await this.prisma.eventAttendee.findMany({
+      where: { applicantId: userId },
+      select: { eventId: true },
+    });
+    
+    return registrations.map(registration => registration.eventId);
   }
 } 

@@ -5,10 +5,11 @@ import { UserRole } from '../types';
 import { Code, GraduationCap, Users, Building2 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '../components/UI/Card';
 import Button from '../components/UI/Button';
+import * as api from '../services/api';
 
 const SignupPage: React.FC = () => {
   const [searchParams] = useSearchParams();
-  const initialRole = (searchParams.get('role') as UserRole) || 'student';
+  const initialRole = (searchParams.get('role') as UserRole) || 'STUDENT';
   
   const [formData, setFormData] = useState({
     name: '',
@@ -24,19 +25,19 @@ const SignupPage: React.FC = () => {
 
   const roleOptions = [
     {
-      value: 'student' as UserRole,
+      value: 'STUDENT' as UserRole,
       label: 'Student',
       icon: GraduationCap,
       description: 'Tech degree student seeking internships and career guidance'
     },
     {
-      value: 'professional' as UserRole,
+      value: 'PROFESSIONAL' as UserRole,
       label: 'IT Professional',
       icon: Users,
       description: 'Experienced developer looking to share knowledge and advance career'
     },
     {
-      value: 'company' as UserRole,
+      value: 'COMPANY' as UserRole,
       label: 'Company',
       icon: Building2,
       description: 'Business looking to recruit talent and engage with the community'
@@ -90,10 +91,27 @@ const SignupPage: React.FC = () => {
     }
 
     try {
-      await login(formData.email, formData.password, formData.role);
+      // Register the user - this returns both user and token
+      const response = await api.register(
+        formData.email,
+        formData.password,
+        formData.name,
+        formData.role
+      );
+      
+      // Store the token and set user in auth context
+      localStorage.setItem('token', response.access_token);
+      
+      // Simulate login by calling our login method with existing credentials
+      await login(formData.email, formData.password);
       navigate('/dashboard');
     } catch (error) {
-      setErrors({ submit: 'Failed to create account. Please try again.' });
+      console.error('Registration error:', error);
+      if (error instanceof Error) {
+        setErrors({ submit: error.message || 'Failed to create account. Please try again.' });
+      } else {
+        setErrors({ submit: 'Failed to create account. Please try again.' });
+      }
     }
   };
 

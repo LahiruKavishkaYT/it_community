@@ -1,9 +1,10 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, UserRole } from '../types';
+import * as api from '../services/api';
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string, role: UserRole) => Promise<void>;
+  login: (email: string, password: string, role?: UserRole) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
 }
@@ -26,33 +27,44 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const login = async (email: string, password: string, role: UserRole) => {
+  // Check for existing token on app start
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      // Verify token by fetching user profile
+      fetchUserProfile(token);
+    }
+  }, []);
+
+  const fetchUserProfile = async (token: string) => {
+    try {
+      const data = await api.getCurrentUser();
+      setUser(data.user);
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      localStorage.removeItem('token');
+    }
+  };
+
+  const login = async (email: string, password: string, role?: UserRole) => {
     setIsLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
     
-    // Mock user data based on role
-    const mockUser: User = {
-      id: '1',
-      name: role === 'student' ? 'Alex Chen' : role === 'professional' ? 'Sarah Johnson' : 'TechCorp Inc.',
-      email,
-      role,
-      avatar: `https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&dpr=2`,
-      bio: role === 'student' 
-        ? 'Computer Science student passionate about web development and AI'
-        : role === 'professional'
-        ? 'Full-stack developer with 3+ years experience in React and Node.js'
-        : 'Leading tech company specializing in innovative software solutions',
-      skills: role !== 'company' ? ['JavaScript', 'React', 'Node.js', 'Python'] : undefined,
-      company: role === 'professional' ? 'TechStart Inc.' : undefined,
-      location: 'San Francisco, CA'
-    };
-    
-    setUser(mockUser);
-    setIsLoading(false);
+    try {
+      const data = await api.login(email, password);
+      
+      // Store token and user data
+      localStorage.setItem('token', data.access_token);
+      setUser(data.user);
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const logout = () => {
+    localStorage.removeItem('token');
     setUser(null);
   };
 

@@ -549,7 +549,7 @@ const HomePage: React.FC = () => {
                         </li>
                       ))}
                     </ul>
-                    <Link to={`/signup?role=${feature.title.toLowerCase().includes('student') ? 'student' : feature.title.toLowerCase().includes('professional') ? 'professional' : 'company'}`}>
+                    <Link to={`/signup?role=${feature.title.toLowerCase().includes('student') ? 'STUDENT' : feature.title.toLowerCase().includes('professional') ? 'PROFESSIONAL' : 'COMPANY'}`}>
                       <Button className="w-full">
                         Get Started
                         <ArrowRight className="ml-2 h-4 w-4" />
