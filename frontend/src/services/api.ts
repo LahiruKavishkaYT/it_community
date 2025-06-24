@@ -1,4 +1,4 @@
-import { Project, Event, Job, User, ProjectFeedback, UserRole } from '../types';
+import { Project, Event, Job, User, ProjectFeedback, UserRole, Activity, UserStats, EventStats, UserActivity, ProfileCompletion, UserSettings, ProjectType } from '../types';
 
 // Base URL for all API calls
 const BASE_URL = 'http://localhost:3001';
@@ -74,6 +74,20 @@ export const getProjects = async (): Promise<Project[]> => {
   });
 };
 
+export const getProjectsByType = async (type: ProjectType): Promise<Project[]> => {
+  return apiRequest<Project[]>(`/projects?type=${type}`, {
+    method: 'GET',
+    headers: createHeaders(),
+  });
+};
+
+export const getProjectsForUserRole = async (): Promise<Project[]> => {
+  return apiRequest<Project[]>('/projects/for-role', {
+    method: 'GET',
+    headers: createHeaders(true),
+  });
+};
+
 export const getProjectById = async (id: string): Promise<Project | undefined> => {
   try {
     return await apiRequest<Project>(`/projects/${id}`, {
@@ -89,7 +103,17 @@ export const getProjectById = async (id: string): Promise<Project | undefined> =
   }
 };
 
-export const createProject = async (data: Omit<Project, 'id' | 'createdAt' | 'feedback'>): Promise<Project> => {
+export const createProject = async (data: {
+  title: string;
+  description: string;
+  technologies: string[];
+  githubUrl?: string;
+  liveUrl?: string;
+  imageUrl?: string;
+  architecture?: string;
+  learningObjectives?: string[];
+  keyFeatures?: string[];
+}): Promise<Project> => {
   return apiRequest<Project>('/projects', {
     method: 'POST',
     headers: createHeaders(true),
@@ -126,6 +150,25 @@ export const deleteProject = async (id: string): Promise<boolean> => {
     }
     throw error;
   }
+};
+
+// Project feedback functions
+export const addProjectFeedback = async (projectId: string, data: {
+  content: string;
+  rating: number;
+}): Promise<ProjectFeedback> => {
+  return apiRequest<ProjectFeedback>(`/projects/${projectId}/feedback`, {
+    method: 'POST',
+    headers: createHeaders(true),
+    body: JSON.stringify(data),
+  });
+};
+
+export const getProjectFeedback = async (projectId: string): Promise<ProjectFeedback[]> => {
+  return apiRequest<ProjectFeedback[]>(`/projects/${projectId}/feedback`, {
+    method: 'GET',
+    headers: createHeaders(),
+  });
 };
 
 // Event API functions
@@ -253,8 +296,8 @@ export const deleteJob = async (id: string): Promise<boolean> => {
 };
 
 // User/Profile API functions
-export const updateProfile = async (data: Partial<User>): Promise<User> => {
-  return apiRequest<User>('/users/profile', {
+export const updateProfile = async (data: Partial<User>): Promise<{ user: User }> => {
+  return apiRequest<{ user: User }>('/profile/me', {
     method: 'PATCH',
     headers: createHeaders(true),
     body: JSON.stringify(data),
@@ -315,5 +358,73 @@ export const getCurrentUser = async (): Promise<{ user: User }> => {
   return apiRequest<{ user: User }>('/auth/profile', {
     method: 'GET',
     headers: createHeaders(true),
+  });
+};
+
+// Activities API functions
+export const getRecentActivities = async (limit = 5): Promise<Activity[]> => {
+  return apiRequest<Activity[]>(`/activities/recent?limit=${limit}`, {
+    method: 'GET',
+    headers: createHeaders(true),
+  });
+};
+
+// User Stats API functions
+export const getUserStats = async (): Promise<UserStats> => {
+  return apiRequest<UserStats>('/profile/stats', {
+    method: 'GET',
+    headers: createHeaders(true),
+  });
+};
+
+// Event Stats API functions
+export const getEventStats = async (): Promise<EventStats> => {
+  return apiRequest<EventStats>('/events/stats/overview', {
+    method: 'GET',
+    headers: createHeaders(false), // No auth required for public stats
+  });
+};
+
+export const getUserRegisteredEvents = async (): Promise<Event[]> => {
+  const response = await apiRequest<{ events: Event[] }>('/events/user/registered-events', {
+    method: 'GET',
+    headers: createHeaders(true),
+  });
+  return response.events;
+};
+
+// Enhanced Profile API functions
+export const getUserActivity = async (limit = 10): Promise<UserActivity[]> => {
+  const response = await apiRequest<{ activities: UserActivity[] }>(`/profile/activity?limit=${limit}`, {
+    method: 'GET',
+    headers: createHeaders(true),
+  });
+  return response.activities;
+};
+
+export const getProfileCompletion = async (): Promise<ProfileCompletion> => {
+  return apiRequest<ProfileCompletion>('/profile/completion', {
+    method: 'GET',
+    headers: createHeaders(true),
+  });
+};
+
+export const changePassword = async (passwordData: {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}): Promise<{ message: string }> => {
+  return apiRequest<{ message: string }>('/profile/change-password', {
+    method: 'POST',
+    headers: createHeaders(true),
+    body: JSON.stringify(passwordData),
+  });
+};
+
+export const updateUserSettings = async (settings: Partial<UserSettings>): Promise<{ message: string }> => {
+  return apiRequest<{ message: string }>('/profile/settings', {
+    method: 'PATCH',
+    headers: createHeaders(true),
+    body: JSON.stringify(settings),
   });
 }; 

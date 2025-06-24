@@ -1,5 +1,7 @@
 export type UserRole = 'STUDENT' | 'PROFESSIONAL' | 'COMPANY' | 'ADMIN';
 
+export type ProjectType = 'STUDENT_PROJECT' | 'PRACTICE_PROJECT';
+
 export interface User {
   id: string;
   name: string;
@@ -16,12 +18,16 @@ export interface Project {
   id: string;
   title: string;
   description: string;
+  projectType: ProjectType;
   author: string;
   authorId: string;
   technologies: string[];
   githubUrl?: string;
   liveUrl?: string;
   imageUrl?: string;
+  architecture?: string;
+  learningObjectives?: string[];
+  keyFeatures?: string[];
   createdAt: string;
   feedback: ProjectFeedback[];
 }
@@ -79,4 +85,75 @@ export interface RoadmapItem {
   level: 'beginner' | 'intermediate' | 'advanced';
   estimatedTime: string;
   resources: string[];
+}
+
+export type ActivityType = 'PROJECT_UPLOAD' | 'JOB_APPLICATION' | 'EVENT_REGISTRATION' | 'PROJECT_FEEDBACK';
+
+export interface Activity {
+  id: string;
+  type: ActivityType;
+  action: string;
+  itemTitle: string;
+  itemId?: string;
+  createdAt: string;
+}
+
+export interface UserStats {
+  projectsOrJobs: number;
+  applicationsOrReceived: number;
+  eventsOrOrganized: number;
+  feedbackOrTalent: number;
+  additionalStat?: number;
+}
+
+export interface EventStats {
+  eventsThisMonth: number;
+  totalAttendees: number;
+  uniqueOrganizers: number;
+  averageRating: number;
+}
+
+export interface UserActivity {
+  id: string;
+  type: string;
+  title: string;
+  date: string;
+  icon: string;
+}
+
+export interface ProfileCompletion {
+  completionPercentage: number;
+  totalFields: number;
+  completedFields: number;
+  missingFields: string[];
+}
+
+export interface SocialLinks {
+  linkedin?: string;
+  github?: string;
+  twitter?: string;
+  website?: string;
+}
+
+export interface Experience {
+  title: string;
+  company: string;
+  description?: string;
+  startDate: string;
+  endDate?: string;
+  current?: boolean;
+}
+
+export interface Education {
+  degree: string;
+  institution: string;
+  fieldOfStudy?: string;
+  startDate: string;
+  endDate?: string;
+}
+
+export interface UserSettings {
+  emailNotifications: boolean;
+  profileSearchable: boolean;
+  isProfilePublic: boolean;
 }

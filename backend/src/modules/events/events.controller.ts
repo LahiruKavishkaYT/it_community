@@ -39,7 +39,7 @@ export class EventsController {
     @Body(ValidationPipe) createEventDto: CreateEventDto,
     @Request() req: any,
   ) {
-    return this.eventsService.create(createEventDto, req.user.sub);
+    return this.eventsService.create(createEventDto, req.user.id);
   }
 
   @Patch(':id')
@@ -50,29 +50,30 @@ export class EventsController {
     @Body(ValidationPipe) updateEventDto: UpdateEventDto,
     @Request() req: any,
   ) {
-    return this.eventsService.update(id, updateEventDto, req.user.sub);
+    return this.eventsService.update(id, updateEventDto, req.user.id);
   }
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.PROFESSIONAL, UserRole.COMPANY)
   async remove(@Param('id') id: string, @Request() req: any) {
-    await this.eventsService.remove(id, req.user.sub);
+    await this.eventsService.remove(id, req.user.id);
     return { message: 'Event deleted successfully' };
   }
 
   @Post(':id/register')
   @UseGuards(JwtAuthGuard)
   async registerForEvent(@Param('id') id: string, @Request() req: any) {
-    return this.eventsService.registerForEvent(id, req.user.sub);
+    return this.eventsService.registerForEvent(id, req.user.id);
   }
 
   @Get(':id/attendees')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.PROFESSIONAL, UserRole.COMPANY, UserRole.ADMIN)
   async getEventAttendees(@Param('id') id: string, @Request() req: any) {
-    // Only allow organizers to see attendee list
+    // Only allow organizers to see attendee list (unless admin)
     const event = await this.eventsService.findOne(id);
-    if (event.organizerId !== req.user.sub) {
+    if (event.organizerId !== req.user.id && req.user.role !== UserRole.ADMIN) {
       return { message: 'Only event organizers can view attendee lists' };
     }
     
@@ -83,7 +84,19 @@ export class EventsController {
   @Get('user/registrations')
   @UseGuards(JwtAuthGuard)
   async getUserRegistrations(@Request() req: any) {
-    const registrations = await this.eventsService.getUserRegistrations(req.user.sub);
+    const registrations = await this.eventsService.getUserRegistrations(req.user.id);
     return { registeredEvents: registrations };
+  }
+
+  @Get('stats/overview')
+  async getEventStats() {
+    return this.eventsService.getEventStats();
+  }
+
+  @Get('user/registered-events')
+  @UseGuards(JwtAuthGuard)
+  async getUserEventRegistrations(@Request() req: any) {
+    const events = await this.eventsService.getUserEventRegistrations(req.user.id);
+    return { events };
   }
 } 

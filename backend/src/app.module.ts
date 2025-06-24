@@ -7,6 +7,8 @@ import { UsersModule } from './users/users.module';
 import { ProjectsModule } from './modules/projects/projects.module';
 import { EventsModule } from './modules/events/events.module';
 import { JobsModule } from './modules/jobs/jobs.module';
+import { AdminModule } from './modules/admin/admin.module';
+import { ActivitiesModule } from './modules/activities/activities.module';
 
 @Module({
   imports: [
@@ -18,6 +20,8 @@ import { JobsModule } from './modules/jobs/jobs.module';
     ProjectsModule,
     EventsModule,
     JobsModule,
+    AdminModule,
+    ActivitiesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

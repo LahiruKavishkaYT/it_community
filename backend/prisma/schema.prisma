@@ -21,6 +21,11 @@ enum UserRole {
   ADMIN
 }
 
+enum ProjectType {
+  STUDENT_PROJECT
+  PRACTICE_PROJECT
+}
+
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
@@ -42,22 +47,27 @@ model User {
   feedback          ProjectFeedback[]
   jobApplications   JobApplication[]
   eventAttendances  EventAttendee[]
+  activities        Activity[]
 
   @@map("users")
 }
 
 model Project {
-  id          String   @id @default(cuid())
-  title       String
-  description String
-  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  authorId    String
-  technologies String[]
-  githubUrl   String?
-  liveUrl     String?
-  imageUrl    String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                String      @id @default(cuid())
+  title             String
+  description       String
+  projectType       ProjectType @default(STUDENT_PROJECT)
+  author            User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId          String
+  technologies      String[]
+  githubUrl         String?
+  liveUrl           String?
+  imageUrl          String?
+  architecture      String?
+  learningObjectives String[]
+  keyFeatures       String[]
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
 
   feedback ProjectFeedback[]
 
@@ -154,4 +164,24 @@ model JobApplication {
 
   @@unique([jobId, applicantId])
   @@map("job_applications")
+}
+
+enum ActivityType {
+  PROJECT_UPLOAD
+  JOB_APPLICATION
+  EVENT_REGISTRATION
+  PROJECT_FEEDBACK
+}
+
+model Activity {
+  id          String       @id @default(cuid())
+  type        ActivityType
+  action      String       // Human readable action description
+  itemTitle   String       // Title of the item (project name, job title, event name)
+  itemId      String?      // ID of the related item (optional)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  createdAt   DateTime     @default(now())
+
+  @@map("activities")
 }

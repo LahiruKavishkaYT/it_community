@@ -39,7 +39,7 @@ export class JobsController {
     @Body(ValidationPipe) createJobDto: CreateJobDto,
     @Request() req: any,
   ) {
-    return this.jobsService.create(createJobDto, req.user.sub);
+    return this.jobsService.create(createJobDto, req.user.id);
   }
 
   @Patch(':id')
@@ -50,14 +50,14 @@ export class JobsController {
     @Body(ValidationPipe) updateJobDto: UpdateJobDto,
     @Request() req: any,
   ) {
-    return this.jobsService.update(id, updateJobDto, req.user.sub);
+    return this.jobsService.update(id, updateJobDto, req.user.id);
   }
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.COMPANY)
   async remove(@Param('id') id: string, @Request() req: any) {
-    await this.jobsService.remove(id, req.user.sub);
+    await this.jobsService.remove(id, req.user.id);
     return { message: 'Job deleted successfully' };
   }
 
@@ -65,7 +65,7 @@ export class JobsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.STUDENT, UserRole.PROFESSIONAL)
   async applyForJob(@Param('id') id: string, @Request() req: any) {
-    const application = await this.jobsService.applyForJob(id, req.user.sub);
+    const application = await this.jobsService.applyForJob(id, req.user.id);
     return {
       message: 'Application submitted successfully',
       application,

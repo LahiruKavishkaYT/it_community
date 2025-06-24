@@ -3,13 +3,17 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreateJobDto } from './dto/create-job.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
 import { Job, JobApplication } from '../../../generated/prisma';
+import { ActivitiesService } from '../activities/activities.service';
 
 @Injectable()
 export class JobsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly activitiesService: ActivitiesService
+  ) {}
 
   async findAll(): Promise<Job[]> {
-    return this.prisma.job.findMany({
+    const jobs = await this.prisma.job.findMany({
       include: {
         company: {
           select: {
@@ -32,6 +36,12 @@ export class JobsService {
         postedAt: 'desc',
       },
     });
+
+    // Transform the data to match frontend expectations
+    return jobs.map(job => ({
+      ...job,
+      company: job.company.name,
+    }));
   }
 
   async findOne(id: string): Promise<Job> {
@@ -191,7 +201,7 @@ export class JobsService {
     }
 
     // Create application
-    return this.prisma.jobApplication.create({
+    const application = await this.prisma.jobApplication.create({
       data: {
         jobId,
         applicantId: userId,
@@ -218,5 +228,14 @@ export class JobsService {
         },
       },
     });
+
+    // Log the activity
+    await this.activitiesService.logJobApplication(
+      userId,
+      job.title,
+      jobId
+    );
+
+    return application;
   }
 } 

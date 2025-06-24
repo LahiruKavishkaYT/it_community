@@ -24,4 +24,18 @@ export class CreateProjectDto {
   @IsOptional()
   @IsUrl()
   imageUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  architecture?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  learningObjectives?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  keyFeatures?: string[];
 } 

@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useStats } from '../contexts/StatsContext';
 import { 
   Plus, 
   Search, 
@@ -361,6 +363,8 @@ const JobPostingModal: React.FC<{
 
 const JobsPage: React.FC = () => {
   const { user } = useAuth();
+  const { incrementJobCount } = useStats();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterBy, setFilterBy] = useState('all');
   const [jobType, setJobType] = useState('all');
@@ -390,6 +394,7 @@ const JobsPage: React.FC = () => {
 
   const handleJobCreated = (newJob: Job) => {
     setJobs(prev => [newJob, ...prev]);
+    incrementJobCount();
   };
 
   const filteredJobs = jobs.filter(job => {
@@ -668,9 +673,23 @@ const JobsPage: React.FC = () => {
                     </div>
 
                     <div className="lg:ml-6 flex flex-col space-y-2 lg:min-w-[120px]">
-                      <Button className="w-full">
-                        Apply Now
-                      </Button>
+                      {user && (user.role === 'STUDENT' || user.role === 'PROFESSIONAL') ? (
+                        <Button className="w-full">
+                          Apply Now
+                        </Button>
+                      ) : user && user.role === 'COMPANY' ? (
+                        <Button variant="outline" className="w-full" disabled>
+                          Cannot Apply
+                        </Button>
+                      ) : !user ? (
+                        <Button variant="outline" className="w-full" onClick={() => navigate('/login')}>
+                          Login to Apply
+                        </Button>
+                      ) : (
+                        <Button variant="outline" className="w-full" disabled>
+                          Cannot Apply
+                        </Button>
+                      )}
                       <Button variant="outline" className="w-full">
                         Learn More
                       </Button>

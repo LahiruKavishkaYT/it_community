@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useStats } from '../contexts/StatsContext';
 import { 
   Plus, 
   Search, 
@@ -27,8 +28,8 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '../components/UI/Card';
 import Button from '../components/UI/Button';
-import { Event } from '../types';
-import { getEvents, createEvent } from '../services/api';
+import { Event, EventStats } from '../types';
+import { getEvents, createEvent, getEventStats, getUserRegisteredEvents } from '../services/api';
 
 // Event Creation Modal Component
 const EventCreationModal: React.FC<{
@@ -329,6 +330,7 @@ const EventCreationModal: React.FC<{
 
 const EventsPage: React.FC = () => {
   const { user } = useAuth();
+  const { incrementEventCount } = useStats();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterBy, setFilterBy] = useState('all');
   const [eventType, setEventType] = useState('all');
@@ -336,25 +338,48 @@ const EventsPage: React.FC = () => {
   const [events, setEvents] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [eventStats, setEventStats] = useState<EventStats | null>(null);
+  const [userRegisteredEvents, setUserRegisteredEvents] = useState<Event[]>([]);
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
 
-  // Fetch events on component mount
+  // Fetch events and stats on component mount
   useEffect(() => {
-    const fetchEvents = async () => {
+    const fetchData = async () => {
       setIsLoading(true);
+      setIsLoadingStats(true);
       setError(null);
+      
       try {
-        const eventsData = await getEvents();
+        // Fetch events and stats in parallel
+        const [eventsData, statsData] = await Promise.all([
+          getEvents(),
+          getEventStats()
+        ]);
+        
         setEvents(eventsData);
+        setEventStats(statsData);
+        
+        // Fetch user registered events if logged in
+        if (user) {
+          try {
+            const userEvents = await getUserRegisteredEvents();
+            setUserRegisteredEvents(userEvents);
+          } catch (err) {
+            console.error('Error fetching user registered events:', err);
+            // Don't fail the whole page if this fails
+          }
+        }
       } catch (err) {
         setError('Failed to load events. Please try again.');
         console.error('Error fetching events:', err);
       } finally {
         setIsLoading(false);
+        setIsLoadingStats(false);
       }
     };
 
-    fetchEvents();
-  }, []);
+    fetchData();
+  }, [user]);
 
   const filteredEvents = events.filter(event => {
     const matchesSearch = event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -369,8 +394,8 @@ const EventsPage: React.FC = () => {
       return matchesSearch && matchesType && (event.organizerId === user.id);
     }
     if (filterBy === 'joined') {
-      // Mock: assume user has joined some events
-      return matchesSearch && matchesType && ['1', '4'].includes(event.id);
+      // Show events the user has actually registered for
+      return matchesSearch && matchesType && userRegisteredEvents.some(regEvent => regEvent.id === event.id);
     }
     return matchesSearch && matchesType;
   });
@@ -409,7 +434,7 @@ const EventsPage: React.FC = () => {
     return Math.min((current / max) * 100, 100);
   };
 
-  const canCreateEvents = user?.role === 'company' || user?.role === 'professional';
+  const canCreateEvents = user?.role === 'COMPANY' || user?.role === 'PROFESSIONAL';
 
   if (isLoading) {
     return (
@@ -442,9 +467,9 @@ const EventsPage: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-white">Events</h1>
           <p className="text-gray-300">
-            {user?.role === 'student' && 'Discover workshops, networking events, and learning opportunities'}
-            {user?.role === 'professional' && 'Share knowledge, attend events, and grow your network'}
-            {user?.role === 'company' && 'Host events, engage with talent, and build your brand'}
+            {user?.role === 'STUDENT' && 'Discover workshops, networking events, and learning opportunities'}
+            {user?.role === 'PROFESSIONAL' && 'Share knowledge, attend events, and grow your network'}
+            {user?.role === 'COMPANY' && 'Host events, engage with talent, and build your brand'}
           </p>
         </div>
         {canCreateEvents && (
@@ -508,28 +533,50 @@ const EventsPage: React.FC = () => {
         <Card>
           <CardContent className="p-4 text-center">
             <Calendar className="h-6 w-6 text-blue-400 mx-auto mb-2" />
-            <div className="text-2xl font-bold text-white">24</div>
+            {isLoadingStats ? (
+              <div className="h-8 w-12 bg-gray-600 rounded animate-pulse mx-auto mb-1"></div>
+            ) : (
+              <div className="text-2xl font-bold text-white">{eventStats?.eventsThisMonth || 0}</div>
+            )}
             <div className="text-sm text-gray-400">This Month</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <Users className="h-6 w-6 text-purple-400 mx-auto mb-2" />
-            <div className="text-2xl font-bold text-white">1.2K</div>
+            {isLoadingStats ? (
+              <div className="h-8 w-12 bg-gray-600 rounded animate-pulse mx-auto mb-1"></div>
+            ) : (
+              <div className="text-2xl font-bold text-white">
+                {eventStats?.totalAttendees ? 
+                  eventStats.totalAttendees >= 1000 ? 
+                    `${(eventStats.totalAttendees / 1000).toFixed(1)}K` : 
+                    eventStats.totalAttendees.toString() 
+                  : '0'}
+              </div>
+            )}
             <div className="text-sm text-gray-400">Attendees</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <Building2 className="h-6 w-6 text-green-400 mx-auto mb-2" />
-            <div className="text-2xl font-bold text-white">45</div>
+            {isLoadingStats ? (
+              <div className="h-8 w-12 bg-gray-600 rounded animate-pulse mx-auto mb-1"></div>
+            ) : (
+              <div className="text-2xl font-bold text-white">{eventStats?.uniqueOrganizers || 0}</div>
+            )}
             <div className="text-sm text-gray-400">Organizers</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <Star className="h-6 w-6 text-yellow-400 mx-auto mb-2" />
-            <div className="text-2xl font-bold text-white">4.8</div>
+            {isLoadingStats ? (
+              <div className="h-8 w-12 bg-gray-600 rounded animate-pulse mx-auto mb-1"></div>
+            ) : (
+              <div className="text-2xl font-bold text-white">{eventStats?.averageRating?.toFixed(1) || '0.0'}</div>
+            )}
             <div className="text-sm text-gray-400">Avg Rating</div>
           </CardContent>
         </Card>
@@ -623,12 +670,12 @@ const EventsPage: React.FC = () => {
                   <div className="flex items-center justify-between pt-4 border-t border-gray-700">
                     <div className="flex items-center space-x-4 text-sm text-gray-400">
                       <div className="flex items-center space-x-1">
-                        <Eye className="h-4 w-4" />
-                        <span>{Math.floor(Math.random() * 500) + 100}</span>
+                        <Users className="h-4 w-4" />
+                        <span>{event.currentAttendees || 0} joined</span>
                       </div>
                       <div className="flex items-center space-x-1">
                         <MessageCircle className="h-4 w-4" />
-                        <span>{Math.floor(Math.random() * 20) + 5}</span>
+                        <span>-</span>
                       </div>
                     </div>
                     
@@ -650,7 +697,7 @@ const EventsPage: React.FC = () => {
                       </Button>
                     ) : (
                       <Button className="w-full">
-                        {user?.role === 'company' && event.organizerId === user.id ? 'Manage Event' : 'Register Now'}
+                        {user?.role === 'COMPANY' && event.organizerId === user.id ? 'Manage Event' : 'Register Now'}
                       </Button>
                     )}
                   </div>
@@ -696,7 +743,10 @@ const EventsPage: React.FC = () => {
       <EventCreationModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
-        onEventCreated={(newEvent) => setEvents(prev => [newEvent, ...prev])}
+        onEventCreated={(newEvent) => {
+          setEvents(prev => [newEvent, ...prev]);
+          incrementEventCount();
+        }}
       />
     </div>
   );

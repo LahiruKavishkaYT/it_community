@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { StatsProvider } from './contexts/StatsContext';
 import Layout from './components/Layout/Layout';
 import HomePage from './pages/HomePage';
 import SignupPage from './pages/SignupPage';
@@ -8,6 +9,7 @@ import LoginPage from './pages/LoginPage';
 import Dashboard from './pages/Dashboard';
 import ProjectsPage from './pages/ProjectsPage';
 import CreateProjectPage from './pages/CreateProjectPage';
+import ProjectDetailPage from './pages/ProjectDetailPage';
 import EventsPage from './pages/EventsPage';
 import JobsPage from './pages/JobsPage';
 import ProfilePage from './pages/ProfilePage';
@@ -27,8 +29,9 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
 function AppContent() {
   return (
-    <Layout>
-      <Routes>
+    <StatsProvider>
+      <Layout>
+        <Routes>
         {/* Public Routes */}
         <Route path="/" element={<PublicRoute><HomePage /></PublicRoute>} />
         <Route path="/signup" element={<PublicRoute><SignupPage /></PublicRoute>} />
@@ -38,6 +41,7 @@ function AppContent() {
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/projects" element={<ProtectedRoute><ProjectsPage /></ProtectedRoute>} />
         <Route path="/projects/new" element={<ProtectedRoute><CreateProjectPage /></ProtectedRoute>} />
+        <Route path="/projects/:id" element={<ProtectedRoute><ProjectDetailPage /></ProtectedRoute>} />
         <Route path="/events" element={<ProtectedRoute><EventsPage /></ProtectedRoute>} />
         <Route path="/jobs" element={<ProtectedRoute><JobsPage /></ProtectedRoute>} />
         <Route path="/career-path" element={<ProtectedRoute><CareerPathPage /></ProtectedRoute>} />
@@ -47,6 +51,7 @@ function AppContent() {
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Layout>
+    </StatsProvider>
   );
 }
 

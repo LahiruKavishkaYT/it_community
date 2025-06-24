@@ -4,13 +4,17 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { Event } from '../../../generated/prisma';
+import { ActivitiesService } from '../activities/activities.service';
 
 @Injectable()
 export class EventsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly activitiesService: ActivitiesService
+  ) {}
 
   async findAll(): Promise<Event[]> {
-    return this.prisma.event.findMany({
+    const events = await this.prisma.event.findMany({
       include: {
         organizer: {
           select: {
@@ -26,6 +30,12 @@ export class EventsService {
         date: 'asc',
       },
     });
+
+    // Transform the data to match frontend expectations
+    return events.map(event => ({
+      ...event,
+      organizer: event.organizer.name,
+    }));
   }
 
   async findOne(id: string): Promise<Event> {
@@ -179,6 +189,13 @@ export class EventsService {
         },
       });
 
+      // Log the activity
+      await this.activitiesService.logEventRegistration(
+        userId,
+        event.title,
+        eventId
+      );
+
       return { message: 'Successfully registered for the event' };
     } catch (error) {
       // Handle unique constraint violation (user already registered)
@@ -205,5 +222,66 @@ export class EventsService {
     });
     
     return registrations.map(registration => registration.eventId);
+  }
+
+  async getEventStats() {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const [
+      totalEventsThisMonth,
+      totalAttendees,
+      uniqueOrganizers,
+      averageRating
+    ] = await Promise.all([
+      // Events this month
+      this.prisma.event.count({
+        where: {
+          date: {
+            gte: startOfMonth
+          }
+        }
+      }),
+      
+      // Total attendees across all events
+      this.prisma.eventAttendee.count(),
+      
+      // Unique organizers
+      this.prisma.event.groupBy({
+        by: ['organizerId'],
+        _count: true
+      }).then(groups => groups.length),
+      
+      // Mock average rating (since we don't have ratings in schema yet)
+      // You could add a ratings table later
+      Promise.resolve(4.8)
+    ]);
+
+    return {
+      eventsThisMonth: totalEventsThisMonth,
+      totalAttendees,
+      uniqueOrganizers,
+      averageRating
+    };
+  }
+
+  async getUserEventRegistrations(userId: string) {
+    const registrations = await this.prisma.eventAttendee.findMany({
+      where: { applicantId: userId },
+      include: {
+        event: {
+          select: {
+            id: true,
+            title: true,
+            date: true,
+            location: true,
+            type: true,
+            organizer: true
+          }
+        }
+      }
+    });
+
+    return registrations.map(reg => reg.event);
   }
 } 
