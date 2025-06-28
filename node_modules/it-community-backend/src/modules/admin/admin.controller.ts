@@ -13,36 +13,86 @@ import {
   DefaultValuePipe,
   Post,
 } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiQuery,
+  ApiBearerAuth,
+  ApiUnauthorizedResponse,
+  ApiBadRequestResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiCreatedResponse,
+  ApiBody,
+  ApiForbiddenResponse,
+} from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { UserRole } from '../../../generated/prisma';
 
+@ApiTags('Admin')
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN)
+@ApiBearerAuth('JWT-auth')
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
   // Dashboard Overview
   @Get('dashboard/overview')
+  @ApiOperation({ 
+    summary: 'Get dashboard overview',
+    description: 'Retrieve comprehensive dashboard overview with key metrics and recent activity'
+  })
+  @ApiOkResponse({ description: 'Dashboard overview retrieved successfully' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required' })
+  @ApiForbiddenResponse({ description: 'Admin role required' })
   async getDashboardOverview() {
     return this.adminService.getDashboardOverview();
   }
 
   @Get('dashboard/metrics')
+  @ApiOperation({ 
+    summary: 'Get detailed dashboard metrics',
+    description: 'Retrieve detailed metrics for dashboard analytics'
+  })
+  @ApiOkResponse({ description: 'Dashboard metrics retrieved successfully' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required' })
+  @ApiForbiddenResponse({ description: 'Admin role required' })
   async getDashboardMetrics() {
     return this.adminService.getDashboardMetrics();
   }
 
   @Get('dashboard/realtime')
+  @ApiOperation({ 
+    summary: 'Get real-time dashboard data',
+    description: 'Retrieve real-time data for live dashboard updates'
+  })
+  @ApiOkResponse({ description: 'Real-time data retrieved successfully' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required' })
+  @ApiForbiddenResponse({ description: 'Admin role required' })
   async getRealTimeData() {
     return this.adminService.getRealTimeData();
   }
 
   // User Management
   @Get('users')
+  @ApiOperation({ 
+    summary: 'Get all users with pagination and filtering',
+    description: 'Retrieve all platform users with advanced filtering and pagination'
+  })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)', example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (default: 10)', example: 10 })
+  @ApiQuery({ name: 'role', required: false, enum: UserRole, description: 'Filter by user role' })
+  @ApiQuery({ name: 'search', required: false, type: String, description: 'Search by name or email' })
+  @ApiQuery({ name: 'status', required: false, type: String, description: 'Filter by status' })
+  @ApiOkResponse({ description: 'Users retrieved successfully' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required' })
+  @ApiForbiddenResponse({ description: 'Admin role required' })
   async getAllUsers(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
@@ -54,11 +104,38 @@ export class AdminController {
   }
 
   @Get('users/:id')
+  @ApiOperation({ 
+    summary: 'Get user details by ID',
+    description: 'Retrieve comprehensive details for a specific user'
+  })
+  @ApiParam({ name: 'id', description: 'User ID', type: 'string' })
+  @ApiOkResponse({ description: 'User details retrieved successfully' })
+  @ApiNotFoundResponse({ description: 'User not found' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required' })
+  @ApiForbiddenResponse({ description: 'Admin role required' })
   async getUserDetails(@Param('id', ParseUUIDPipe) id: string) {
     return this.adminService.getUserDetails(id);
   }
 
   @Patch('users/:id/role')
+  @ApiOperation({ 
+    summary: 'Update user role',
+    description: 'Change a user\'s role in the platform'
+  })
+  @ApiParam({ name: 'id', description: 'User ID to update', type: 'string' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        role: { type: 'string', enum: ['STUDENT', 'PROFESSIONAL', 'COMPANY', 'ADMIN'] }
+      },
+      required: ['role']
+    }
+  })
+  @ApiOkResponse({ description: 'User role updated successfully' })
+  @ApiNotFoundResponse({ description: 'User not found' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required' })
+  @ApiForbiddenResponse({ description: 'Admin role required' })
   async updateUserRole(
     @Param('id', ParseUUIDPipe) id: string,
     @Body('role') newRole: UserRole,
@@ -67,6 +144,24 @@ export class AdminController {
   }
 
   @Patch('users/:id/status')
+  @ApiOperation({ 
+    summary: 'Update user status',
+    description: 'Change user account status (active, suspended, deleted)'
+  })
+  @ApiParam({ name: 'id', description: 'User ID to update', type: 'string' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', enum: ['active', 'suspended', 'deleted'] }
+      },
+      required: ['status']
+    }
+  })
+  @ApiOkResponse({ description: 'User status updated successfully' })
+  @ApiNotFoundResponse({ description: 'User not found' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required' })
+  @ApiForbiddenResponse({ description: 'Admin role required' })
   async updateUserStatus(
     @Param('id', ParseUUIDPipe) id: string,
     @Body('status') status: 'active' | 'suspended' | 'deleted',
@@ -75,29 +170,59 @@ export class AdminController {
   }
 
   @Delete('users/:id')
+  @ApiOperation({ 
+    summary: 'Delete user account',
+    description: 'Permanently delete a user account and all associated data'
+  })
+  @ApiParam({ name: 'id', description: 'User ID to delete', type: 'string' })
+  @ApiOkResponse({ description: 'User deleted successfully' })
+  @ApiNotFoundResponse({ description: 'User not found' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required' })
+  @ApiForbiddenResponse({ description: 'Admin role required' })
   async deleteUser(@Param('id', ParseUUIDPipe) id: string) {
-    await this.adminService.deleteUser(id);
-    return { message: 'User deleted successfully' };
+    return this.adminService.deleteUser(id);
   }
 
-  // Content Moderation
-  @Get('content/projects')
+  // Project Management
+  @Get('projects')
+  @ApiOperation({ 
+    summary: 'Get all projects for moderation',
+    description: 'Retrieve all projects with filtering for moderation purposes'
+  })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
+  @ApiQuery({ name: 'status', required: false, type: String, description: 'Filter by status' })
+  @ApiQuery({ name: 'search', required: false, type: String, description: 'Search projects' })
+  @ApiOkResponse({ description: 'Projects retrieved successfully' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required' })
+  @ApiForbiddenResponse({ description: 'Admin role required' })
   async getAllProjects(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
     @Query('status') status?: string,
     @Query('search') search?: string,
-    @Query('type') type?: string,
   ) {
-    return this.adminService.getAllProjects({ page, limit, status, search, type });
+    return this.adminService.getAllProjects({ page, limit, status, search });
   }
 
-  @Get('content/projects/:id')
-  async getProjectDetails(@Param('id', ParseUUIDPipe) id: string) {
-    return this.adminService.getProjectDetails(id);
-  }
-
-  @Post('content/projects/:id/approve')
+  @Post('projects/:id/approve')
+  @ApiOperation({ 
+    summary: 'Approve project',
+    description: 'Approve a project for publication'
+  })
+  @ApiParam({ name: 'id', description: 'Project ID', type: 'string' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        notes: { type: 'string' }
+      }
+    }
+  })
+  @ApiOkResponse({ description: 'Project approved successfully' })
+  @ApiNotFoundResponse({ description: 'Project not found' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required' })
+  @ApiForbiddenResponse({ description: 'Admin role required' })
   async approveProject(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: { notes?: string },
@@ -106,7 +231,25 @@ export class AdminController {
     return this.adminService.approveProject(id, req.user.id, body.notes);
   }
 
-  @Post('content/projects/:id/reject')
+  @Post('projects/:id/reject')
+  @ApiOperation({ 
+    summary: 'Reject project',
+    description: 'Reject a project with reason'
+  })
+  @ApiParam({ name: 'id', description: 'Project ID', type: 'string' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        reason: { type: 'string' }
+      },
+      required: ['reason']
+    }
+  })
+  @ApiOkResponse({ description: 'Project rejected successfully' })
+  @ApiNotFoundResponse({ description: 'Project not found' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required' })
+  @ApiForbiddenResponse({ description: 'Admin role required' })
   async rejectProject(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: { reason: string },
@@ -115,58 +258,97 @@ export class AdminController {
     return this.adminService.rejectProject(id, req.user.id, body.reason);
   }
 
-  @Delete('content/projects/:id')
+  @Delete('projects/:id')
+  @ApiOperation({ 
+    summary: 'Delete project',
+    description: 'Delete a project permanently'
+  })
+  @ApiParam({ name: 'id', description: 'Project ID', type: 'string' })
+  @ApiOkResponse({ description: 'Project deleted successfully' })
+  @ApiNotFoundResponse({ description: 'Project not found' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required' })
+  @ApiForbiddenResponse({ description: 'Admin role required' })
   async deleteProject(@Param('id', ParseUUIDPipe) id: string) {
-    await this.adminService.deleteProject(id);
-    return { message: 'Project deleted successfully' };
+    return this.adminService.deleteProject(id);
   }
 
-  @Get('content/jobs')
-  async getAllJobs(
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
-    @Query('status') status?: string,
-    @Query('search') search?: string,
-    @Query('type') type?: string,
-  ) {
-    return this.adminService.getAllJobs({ page, limit, status, search, type });
-  }
-
-  @Get('content/jobs/:id')
-  async getJobDetails(@Param('id', ParseUUIDPipe) id: string) {
-    return this.adminService.getJobDetails(id);
-  }
-
-  @Delete('content/jobs/:id')
-  async deleteJob(@Param('id', ParseUUIDPipe) id: string) {
-    await this.adminService.deleteJob(id);
-    return { message: 'Job deleted successfully' };
-  }
-
-  @Get('content/events')
+  // Events Management
+  @Get('events')
+  @ApiOperation({ 
+    summary: 'Get all events for moderation',
+    description: 'Retrieve all events with filtering for moderation purposes'
+  })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'status', required: false, type: String })
+  @ApiOkResponse({ description: 'Events retrieved successfully' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required' })
+  @ApiForbiddenResponse({ description: 'Admin role required' })
   async getAllEvents(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
     @Query('status') status?: string,
-    @Query('search') search?: string,
-    @Query('type') type?: string,
   ) {
-    return this.adminService.getAllEvents({ page, limit, status, search, type });
+    return this.adminService.getAllEvents({ page, limit, status });
   }
 
-  @Get('content/events/:id')
-  async getEventDetails(@Param('id', ParseUUIDPipe) id: string) {
-    return this.adminService.getEventDetails(id);
-  }
-
-  @Delete('content/events/:id')
+  @Delete('events/:id')
+  @ApiOperation({ 
+    summary: 'Delete event',
+    description: 'Delete an event permanently'
+  })
+  @ApiParam({ name: 'id', description: 'Event ID', type: 'string' })
+  @ApiOkResponse({ description: 'Event deleted successfully' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required' })
+  @ApiForbiddenResponse({ description: 'Admin role required' })
   async deleteEvent(@Param('id', ParseUUIDPipe) id: string) {
-    await this.adminService.deleteEvent(id);
-    return { message: 'Event deleted successfully' };
+    return this.adminService.deleteEvent(id);
   }
 
-  // Advanced Analytics
+  // Jobs Management
+  @Get('jobs')
+  @ApiOperation({ 
+    summary: 'Get all jobs for moderation',
+    description: 'Retrieve all jobs with filtering for moderation purposes'
+  })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'status', required: false, type: String })
+  @ApiOkResponse({ description: 'Jobs retrieved successfully' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required' })
+  @ApiForbiddenResponse({ description: 'Admin role required' })
+  async getAllJobs(
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+    @Query('status') status?: string,
+  ) {
+    return this.adminService.getAllJobs({ page, limit, status });
+  }
+
+  @Delete('jobs/:id')
+  @ApiOperation({ 
+    summary: 'Delete job',
+    description: 'Delete a job posting permanently'
+  })
+  @ApiParam({ name: 'id', description: 'Job ID', type: 'string' })
+  @ApiOkResponse({ description: 'Job deleted successfully' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required' })
+  @ApiForbiddenResponse({ description: 'Admin role required' })
+  async deleteJob(@Param('id', ParseUUIDPipe) id: string) {
+    return this.adminService.deleteJob(id);
+  }
+
+  // Analytics
   @Get('analytics/users')
+  @ApiOperation({ 
+    summary: 'Get user analytics',
+    description: 'Retrieve detailed user analytics with time period filtering'
+  })
+  @ApiQuery({ name: 'period', required: false, enum: ['7d', '30d', '90d', '1y'] })
+  @ApiQuery({ name: 'groupBy', required: false, enum: ['day', 'week', 'month'] })
+  @ApiOkResponse({ description: 'User analytics retrieved successfully' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required' })
+  @ApiForbiddenResponse({ description: 'Admin role required' })
   async getUserAnalytics(
     @Query('period') period?: '7d' | '30d' | '90d' | '1y',
     @Query('groupBy') groupBy?: 'day' | 'week' | 'month',
@@ -175,6 +357,15 @@ export class AdminController {
   }
 
   @Get('analytics/content')
+  @ApiOperation({ 
+    summary: 'Get content analytics',
+    description: 'Retrieve content analytics by type and time period'
+  })
+  @ApiQuery({ name: 'period', required: false, enum: ['7d', '30d', '90d', '1y'] })
+  @ApiQuery({ name: 'type', required: false, enum: ['projects', 'events', 'jobs'] })
+  @ApiOkResponse({ description: 'Content analytics retrieved successfully' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required' })
+  @ApiForbiddenResponse({ description: 'Admin role required' })
   async getContentAnalytics(
     @Query('period') period?: '7d' | '30d' | '90d' | '1y',
     @Query('type') type?: 'projects' | 'events' | 'jobs',
@@ -182,45 +373,43 @@ export class AdminController {
     return this.adminService.getContentAnalytics(period, type);
   }
 
-  @Get('analytics/engagement')
-  async getEngagementAnalytics(
-    @Query('period') period?: '7d' | '30d' | '90d' | '1y',
-  ) {
-    return this.adminService.getEngagementAnalytics(period);
-  }
-
-  @Get('analytics/trends')
-  async getTrendAnalytics(
-    @Query('period') period?: '7d' | '30d' | '90d' | '1y',
-    @Query('metric') metric?: 'users' | 'projects' | 'events' | 'jobs',
-  ) {
-    return this.adminService.getTrendAnalytics(period, metric);
-  }
-
-  // System Health & Monitoring
+  // System Health
   @Get('system/health')
+  @ApiOperation({ 
+    summary: 'Get system health status',
+    description: 'Retrieve current system health and status information'
+  })
+  @ApiOkResponse({ description: 'System health retrieved successfully' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required' })
+  @ApiForbiddenResponse({ description: 'Admin role required' })
   async getSystemHealth() {
     return this.adminService.getSystemHealth();
   }
 
   @Get('system/performance')
+  @ApiOperation({ 
+    summary: 'Get system performance metrics',
+    description: 'Get detailed system performance metrics and monitoring data'
+  })
+  @ApiOkResponse({ description: 'System performance metrics retrieved successfully' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required' })
+  @ApiForbiddenResponse({ description: 'Admin role required' })
   async getSystemPerformance() {
     return this.adminService.getSystemPerformance();
   }
 
-  @Get('system/logs')
-  async getSystemLogs(
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit: number,
-    @Query('level') level?: 'error' | 'warn' | 'info' | 'debug',
-    @Query('startDate') startDate?: string,
-    @Query('endDate') endDate?: string,
-  ) {
-    return this.adminService.getSystemLogs({ page, limit, level, startDate, endDate });
-  }
-
-  // Recent Activity
+  // Activity Tracking
   @Get('activity/recent')
+  @ApiOperation({ 
+    summary: 'Get recent platform activity',
+    description: 'Retrieve recent user activity across the platform'
+  })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'type', required: false, type: String })
+  @ApiOkResponse({ description: 'Recent activity retrieved successfully' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required' })
+  @ApiForbiddenResponse({ description: 'Admin role required' })
   async getRecentActivity(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
@@ -230,17 +419,61 @@ export class AdminController {
   }
 
   // Quick Actions
-  @Get('quick-actions')
+  @Get('actions/quick')
+  @ApiOperation({ 
+    summary: 'Get quick actions for admin dashboard',
+    description: 'Retrieve available quick actions for the admin dashboard'
+  })
+  @ApiOkResponse({ description: 'Quick actions retrieved successfully' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required' })
+  @ApiForbiddenResponse({ description: 'Admin role required' })
   async getQuickActions() {
     return this.adminService.getQuickActions();
   }
 
-  @Post('quick-actions/bulk-approve')
+  // Bulk Operations
+  @Post('bulk/approve')
+  @ApiOperation({ 
+    summary: 'Bulk approve content',
+    description: 'Approve multiple content items at once'
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        type: { type: 'string', enum: ['projects', 'events', 'jobs'] },
+        ids: { type: 'array', items: { type: 'string' } }
+      },
+      required: ['type', 'ids']
+    }
+  })
+  @ApiCreatedResponse({ description: 'Content approved successfully' })
+  @ApiBadRequestResponse({ description: 'Invalid request data' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required' })
+  @ApiForbiddenResponse({ description: 'Admin role required' })
   async bulkApproveContent(@Body() body: { type: string; ids: string[] }) {
     return this.adminService.bulkApproveContent(body.type, body.ids);
   }
 
-  @Post('quick-actions/bulk-delete')
+  @Delete('bulk/delete')
+  @ApiOperation({ 
+    summary: 'Bulk delete content',
+    description: 'Delete multiple content items at once'
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        type: { type: 'string', enum: ['projects', 'events', 'jobs', 'users'] },
+        ids: { type: 'array', items: { type: 'string' } }
+      },
+      required: ['type', 'ids']
+    }
+  })
+  @ApiOkResponse({ description: 'Content deleted successfully' })
+  @ApiBadRequestResponse({ description: 'Invalid request data' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required' })
+  @ApiForbiddenResponse({ description: 'Admin role required' })
   async bulkDeleteContent(@Body() body: { type: string; ids: string[] }) {
     return this.adminService.bulkDeleteContent(body.type, body.ids);
   }
