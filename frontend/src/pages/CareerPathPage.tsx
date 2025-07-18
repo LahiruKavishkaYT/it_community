@@ -34,16 +34,36 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '../components/UI/Card';
 import Button from '../components/UI/Button';
+import CareerPathCard from '../components/UI/CareerPathCard';
+import TabbedCareerView from '../components/UI/TabbedCareerView';
+import { useNavigate } from 'react-router-dom';
 
 const CareerPathPage: React.FC = () => {
   const { user } = useAuth();
   const { isModalOpen, modalAction, modalFeature, requireAuth, closeModal } = useAuthModal();
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
+
+  const handlePathExplore = (pathId: string) => {
+    // Check if mindmap exists for this path
+    const mindmapPaths = [
+      'frontend', 'backend', 'devops', 'fullstack', 'ai-engineer', 
+      'data-scientist', 'data-analyst', 'android-developer', 'ios-developer', 
+      'blockchain-developer'
+    ];
+    
+    if (mindmapPaths.includes(pathId)) {
+      navigate(`/mindmaps/${pathId}`);
+    } else {
+      // Fallback to detailed view for paths without mindmaps
+      setSelectedPath(pathId);
+    }
+  };
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDemand, setSelectedDemand] = useState<string>('all');
   const [selectedSalaryRange, setSelectedSalaryRange] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
+  const navigate = useNavigate();
 
   const careerPaths = [
     {
@@ -505,29 +525,6 @@ const CareerPathPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="text-center mb-8">
-        <div className="flex items-center justify-center space-x-2 mb-4">
-          <Map className="h-8 w-8 text-blue-400" />
-          <h1 className="text-3xl font-bold text-white">Career Path Explorer</h1>
-        </div>
-        <p className="text-lg text-gray-300 max-w-3xl mx-auto">
-          {user 
-            ? 'Track your progress with personalized roadmaps, skill assessments, and career mentorship from industry professionals.'
-            : 'Discover your perfect tech career path with interactive roadmaps, salary insights, and step-by-step learning guides. Join our community to unlock personalized career guidance.'
-          }
-        </p>
-        {!user && (
-          <div className="mt-6">
-            <Button 
-              onClick={() => requireAuth('access personalized career guidance and mentorship', 'Career Paths')}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3"
-            >
-              Get Personalized Roadmap
-            </Button>
-          </div>
-        )}
-      </div>
 
       {/* Search and Filters */}
       {!selectedPath && (
@@ -662,119 +659,10 @@ const CareerPathPage: React.FC = () => {
             const learningSteps = getLearningPath(selectedPath);
 
             return (
-              <div className="space-y-6">
-                {/* Path Overview */}
-                <Card>
-                  <CardContent className="p-8">
-                    <div className="flex items-center space-x-4 mb-6">
-                      <div className={`p-4 rounded-lg ${path.bgColor} border ${path.borderColor}`}>
-                        <Icon className={`h-8 w-8 ${path.color}`} />
-                      </div>
-                      <div>
-                        <h2 className="text-2xl font-bold text-white">{path.title}</h2>
-                        <p className="text-gray-300">{path.description}</p>
-                      </div>
-                    </div>
-
-                    <div className="grid md:grid-cols-3 gap-6">
-                      <div className="text-center p-4 bg-gray-700 rounded-lg">
-                        <div className="text-2xl font-bold text-white">{path.averageSalary}</div>
-                        <div className="text-sm text-gray-400">Average Salary</div>
-                      </div>
-                      <div className="text-center p-4 bg-gray-700 rounded-lg">
-                        <div className="text-2xl font-bold text-white">{path.demandLevel}</div>
-                        <div className="text-sm text-gray-400">Market Demand</div>
-                      </div>
-                      <div className="text-center p-4 bg-gray-700 rounded-lg">
-                        <div className="text-2xl font-bold text-white">6-12 mo</div>
-                        <div className="text-sm text-gray-400">Time to Job Ready</div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Learning Roadmap */}
-                <Card>
-                  <CardHeader>
-                    <h3 className="text-xl font-bold text-white">Learning Roadmap</h3>
-                    <p className="text-gray-300">Step-by-step guide to becoming a {path.title}</p>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-6">
-                      {learningSteps.map((step, index) => (
-                        <div key={index} className="flex items-start space-x-4">
-                          <div className="flex-shrink-0">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                              step.completed 
-                                ? 'bg-green-600/20 text-green-400 border border-green-500/30' 
-                                : 'bg-gray-700 text-gray-400 border border-gray-600'
-                            }`}>
-                              {step.completed ? (
-                                <CheckCircle className="h-5 w-5" />
-                              ) : (
-                                <span className="text-sm font-bold">{index + 1}</span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between mb-2">
-                              <h4 className="font-semibold text-white">{step.phase}</h4>
-                              <div className="flex items-center space-x-2 text-sm text-gray-400">
-                                <Clock className="h-4 w-4" />
-                                <span>{step.duration}</span>
-                              </div>
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                              {step.skills.map((skill: string, skillIndex: number) => (
-                                <span
-                                  key={skillIndex}
-                                  className={`px-3 py-1 text-xs rounded-full ${
-                                    step.completed
-                                      ? 'bg-green-600/20 text-green-300 border border-green-500/30'
-                                      : 'bg-blue-600/20 text-blue-300 border border-blue-500/30'
-                                  }`}
-                                >
-                                  {skill}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Career Progression */}
-                <Card>
-                  <CardHeader>
-                    <h3 className="text-xl font-bold text-white">Career Progression</h3>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0 md:space-x-4">
-                      {path.roles.map((role, index) => (
-                        <React.Fragment key={index}>
-                          <div className="text-center">
-                            <div className="w-16 h-16 bg-blue-600/20 border border-blue-500/30 rounded-full flex items-center justify-center mx-auto mb-2">
-                              <span className="text-blue-400 font-bold">{index + 1}</span>
-                            </div>
-                            <div className="font-medium text-white">{role}</div>
-                            <div className="text-sm text-gray-400">
-                              {index === 0 && '0-2 years'}
-                              {index === 1 && '2-5 years'}
-                              {index === 2 && '5-8 years'}
-                              {index === 3 && '8+ years'}
-                            </div>
-                          </div>
-                          {index < path.roles.length - 1 && (
-                            <ArrowRight className="h-6 w-6 text-gray-400 hidden md:block" />
-                          )}
-                        </React.Fragment>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
+              <TabbedCareerView
+                pathId={path.id}
+                pathTitle={path.title}
+              />
             );
           })()}
         </div>
@@ -782,91 +670,27 @@ const CareerPathPage: React.FC = () => {
         /* Career Paths Grid */
         <div className="space-y-6">
           {getFilteredPaths().length > 0 ? (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {getFilteredPaths().map((path) => {
-            const Icon = path.icon;
-            return (
-              <div 
-                key={path.id} 
-                className="cursor-pointer transition-all duration-200 hover:scale-105"
-                onClick={() => setSelectedPath(path.id)}
-              >
-                <Card hover>
-                <CardContent className="p-6">
-                  <div className="space-y-4">
-                    <div className="flex items-center space-x-3">
-                      <div className={`p-3 rounded-lg ${path.bgColor} border ${path.borderColor}`}>
-                        <Icon className={`h-6 w-6 ${path.color}`} />
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-white">{path.title}</h3>
-                        <div className="flex items-center space-x-2">
-                          <span className={`text-xs px-2 py-1 rounded-full ${
-                            path.demandLevel === 'Extremely High' ? 'bg-red-600/20 text-red-300 border border-red-500/30' :
-                            path.demandLevel === 'Very High' ? 'bg-orange-600/20 text-orange-300 border border-orange-500/30' :
-                            'bg-yellow-600/20 text-yellow-300 border border-yellow-500/30'
-                          }`}>
-                            {path.demandLevel} Demand
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <p className="text-sm text-gray-300">{path.description}</p>
-
-                    <div className="space-y-3">
-                      <div>
-                        <div className="text-sm font-medium text-gray-300 mb-2">Key Skills:</div>
-                        <div className="flex flex-wrap gap-1">
-                          {path.skills.slice(0, 3).map((skill, index) => (
-                            <span
-                              key={index}
-                              className="px-2 py-1 bg-gray-700 text-gray-300 text-xs rounded border border-gray-600"
-                            >
-                              {skill}
-                            </span>
-                          ))}
-                          {path.skills.length > 3 && (
-                            <span className="px-2 py-1 bg-gray-700 text-gray-400 text-xs rounded border border-gray-600">
-                              +{path.skills.length - 3} more
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-300">Avg. Salary:</span>
-                        <span className="font-medium text-white">{path.averageSalary}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-4 border-t border-gray-700">
-                      <div className="flex items-center space-x-1 text-sm text-gray-400">
-                        <Star className="h-4 w-4" />
-                        <span>{Math.floor(Math.random() * 2) + 4}.{Math.floor(Math.random() * 9)} rating</span>
-                      </div>
-                      <Button 
-                        size="sm" 
-                        className="flex items-center space-x-1"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (!user) {
-                            requireAuth(`start your ${path.title} journey`, 'Career Paths');
-                          } else {
-                            setSelectedPath(path.id);
-                          }
-                        }}
-                      >
-                        <span>{user ? 'Explore Path' : 'Start Journey'}</span>
-                        <ArrowRight className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-                </Card>
-              </div>
-            );
-              })}
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {getFilteredPaths().map((path) => (
+                <CareerPathCard
+                  key={path.id}
+                  id={path.id}
+                  title={path.title}
+                  icon={path.icon}
+                  color={path.color}
+                  bgColor={path.bgColor}
+                  borderColor={path.borderColor}
+                  description={path.description}
+                  skills={path.skills}
+                  roles={path.roles}
+                  averageSalary={path.averageSalary}
+                  demandLevel={path.demandLevel}
+                  category={path.category}
+                  salaryMin={path.salaryMin}
+                  salaryMax={path.salaryMax}
+                  onExplore={handlePathExplore}
+                />
+              ))}
             </div>
           ) : (
             /* Empty State */

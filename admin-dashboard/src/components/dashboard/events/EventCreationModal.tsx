@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { 
   X, 
@@ -8,12 +8,17 @@ import {
   FileText, 
   Clock,
   Save,
-  Loader2
+  Loader2,
+  Upload,
+  Image,
+  Link as LinkIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
   SelectContent,
@@ -41,20 +46,30 @@ interface EventCreationModalProps {
 
 interface EventFormData {
   title: string;
+  type: 'WORKSHOP' | 'HACKATHON' | 'NETWORKING' | 'SEMINAR' | 'RECRUITMENT_DRIVE';
   description: string;
-  date: string;
-  time: string;
-  location: string;
-  type: 'WORKSHOP' | 'NETWORKING' | 'HACKATHON' | 'SEMINAR';
+  imageFile: File | null;
+  imageUrl: string;
+  startDate: string;
+  startTime: string;
+  endDate: string;
+  endTime: string;
+  locationType: 'ONSITE' | 'VIRTUAL';
+  venue: string;
+  virtualEventLink: string;
+  registrationDeadlineDate: string;
+  registrationDeadlineTime: string;
+  foodAndDrinksProvided: boolean;
   maxAttendees: string;
   status: 'DRAFT' | 'PUBLISHED';
 }
 
 const EVENT_TYPES = [
   { value: 'WORKSHOP', label: 'Workshop' },
-  { value: 'NETWORKING', label: 'Networking' },
   { value: 'HACKATHON', label: 'Hackathon' },
+  { value: 'NETWORKING', label: 'Networking' },
   { value: 'SEMINAR', label: 'Seminar' },
+  { value: 'RECRUITMENT_DRIVE', label: 'Recruitment Drive' },
 ];
 
 export const EventCreationModal = ({ 
@@ -63,18 +78,29 @@ export const EventCreationModal = ({
   event, 
   mode 
 }: EventCreationModalProps) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState<EventFormData>({
     title: event?.title || '',
-    description: event?.description || '',
-    date: event?.date ? new Date(event.date).toISOString().split('T')[0] : '',
-    time: event?.date ? new Date(event.date).toTimeString().slice(0, 5) : '',
-    location: event?.location || '',
     type: event?.type || 'WORKSHOP',
+    description: event?.description || '',
+    imageFile: null,
+    imageUrl: event?.imageUrl || '',
+    startDate: event?.date ? new Date(event.date).toISOString().split('T')[0] : '',
+    startTime: event?.date ? new Date(event.date).toTimeString().slice(0, 5) : '',
+    endDate: event?.endDateTime ? new Date(event.endDateTime).toISOString().split('T')[0] : '',
+    endTime: event?.endDateTime ? new Date(event.endDateTime).toTimeString().slice(0, 5) : '',
+    locationType: event?.isVirtual ? 'VIRTUAL' : 'ONSITE',
+    venue: event?.venue || '',
+    virtualEventLink: event?.virtualEventLink || '',
+    registrationDeadlineDate: event?.registrationDeadline ? new Date(event.registrationDeadline).toISOString().split('T')[0] : '',
+    registrationDeadlineTime: event?.registrationDeadline ? new Date(event.registrationDeadline).toTimeString().slice(0, 5) : '',
+    foodAndDrinksProvided: event?.foodAndDrinksProvided || false,
     maxAttendees: event?.maxAttendees?.toString() || '',
     status: event?.status === 'PUBLISHED' ? 'PUBLISHED' : 'DRAFT',
   });
 
   const [errors, setErrors] = useState<Partial<EventFormData>>({});
+  const [previewImage, setPreviewImage] = useState<string | null>(event?.imageUrl || null);
   const queryClient = useQueryClient();
 
   // Mock mutation for creating/updating events
@@ -87,10 +113,16 @@ export const EventCreationModal = ({
         return {
           id: Date.now().toString(),
           title: data.title,
-          description: data.description,
-          date: new Date(`${data.date}T${data.time}`).toISOString(),
-          location: data.location,
           type: data.type,
+          description: data.description,
+          imageUrl: data.imageUrl || previewImage || undefined,
+          startDateTime: new Date(`${data.startDate}T${data.startTime}`).toISOString(),
+          endDateTime: data.endDate && data.endTime ? new Date(`${data.endDate}T${data.endTime}`).toISOString() : undefined,
+          locationType: data.locationType,
+          venue: data.venue,
+          virtualEventLink: data.virtualEventLink,
+          registrationDeadline: new Date(`${data.registrationDeadlineDate}T${data.registrationDeadlineTime}`).toISOString(),
+          foodAndDrinksProvided: data.foodAndDrinksProvided,
           maxAttendees: data.maxAttendees ? parseInt(data.maxAttendees) : undefined,
           status: data.status,
           organizer: {
@@ -104,13 +136,12 @@ export const EventCreationModal = ({
       } else {
         return {
           ...event,
-          title: data.title,
-          description: data.description,
-          date: new Date(`${data.date}T${data.time}`).toISOString(),
-          location: data.location,
-          type: data.type,
+          ...data,
+          startDateTime: new Date(`${data.startDate}T${data.startTime}`).toISOString(),
+          endDateTime: data.endDate && data.endTime ? new Date(`${data.endDate}T${data.endTime}`).toISOString() : undefined,
+          registrationDeadline: new Date(`${data.registrationDeadlineDate}T${data.registrationDeadlineTime}`).toISOString(),
           maxAttendees: data.maxAttendees ? parseInt(data.maxAttendees) : undefined,
-          status: data.status,
+          imageUrl: data.imageUrl || previewImage || undefined,
         };
       }
     },
@@ -135,23 +166,83 @@ export const EventCreationModal = ({
     const newErrors: Partial<EventFormData> = {};
 
     if (!formData.title.trim()) {
-      newErrors.title = 'Title is required';
+      newErrors.title = 'Event title is required';
+    }
+
+    if (!formData.type) {
+      newErrors.type = 'Event type is required';
     }
 
     if (!formData.description.trim()) {
-      newErrors.description = 'Description is required';
+      newErrors.description = 'Event description is required';
     }
 
-    if (!formData.date) {
-      newErrors.date = 'Date is required';
+    if (!previewImage && !formData.imageUrl) {
+      newErrors.imageUrl = 'Event banner is required';
     }
 
-    if (!formData.time) {
-      newErrors.time = 'Time is required';
+    if (!formData.startDate) {
+      newErrors.startDate = 'Start date is required';
     }
 
-    if (!formData.location.trim()) {
-      newErrors.location = 'Location is required';
+    if (!formData.startTime) {
+      newErrors.startTime = 'Start time is required';
+    }
+
+    if (!formData.endDate) {
+      newErrors.endDate = 'End date is required';
+    }
+
+    if (!formData.endTime) {
+      newErrors.endTime = 'End time is required';
+    }
+
+    // Validate end time is after start time
+    if (formData.startDate && formData.startTime && formData.endDate && formData.endTime) {
+      const startDateTime = new Date(`${formData.startDate}T${formData.startTime}`);
+      const endDateTime = new Date(`${formData.endDate}T${formData.endTime}`);
+      
+      if (endDateTime <= startDateTime) {
+        newErrors.endDate = 'End time must be after start time';
+      }
+    }
+
+    // Validate future start time
+    if (formData.startDate && formData.startTime) {
+      const startDateTime = new Date(`${formData.startDate}T${formData.startTime}`);
+      if (startDateTime <= new Date()) {
+        newErrors.startDate = 'Event must be scheduled in the future';
+      }
+    }
+
+    if (!formData.locationType) {
+      newErrors.locationType = 'Location type is required';
+    }
+
+    if (formData.locationType === 'ONSITE' && !formData.venue.trim()) {
+      newErrors.venue = 'Venue is required for on-site events';
+    }
+
+    if (formData.locationType === 'VIRTUAL' && !formData.virtualEventLink.trim()) {
+      newErrors.virtualEventLink = 'Virtual event link is required for virtual events';
+    }
+
+    if (!formData.registrationDeadlineDate) {
+      newErrors.registrationDeadlineDate = 'Registration deadline date is required';
+    }
+
+    if (!formData.registrationDeadlineTime) {
+      newErrors.registrationDeadlineTime = 'Registration deadline time is required';
+    }
+
+    // Validate registration deadline is before event start time
+    if (formData.registrationDeadlineDate && formData.registrationDeadlineTime && formData.startDate && formData.startTime) {
+      const registrationDeadline = new Date(`${formData.registrationDeadlineDate}T${formData.registrationDeadlineTime}`);
+      const startDateTime = new Date(`${formData.startDate}T${formData.startTime}`);
+      
+      if (registrationDeadline >= startDateTime) {
+        newErrors.registrationDeadlineDate = 'Registration deadline must be before event start time';
+      }
     }
 
     if (formData.maxAttendees && parseInt(formData.maxAttendees) <= 0) {
@@ -160,6 +251,33 @@ export const EventCreationModal = ({
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: "Invalid file type",
+          description: "Please select an image file",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setPreviewImage(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+
+      setFormData(prev => ({ ...prev, imageFile: file }));
+      
+      // Clear URL field since we're using file upload
+      setFormData(prev => ({ ...prev, imageUrl: '' }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -175,19 +293,29 @@ export const EventCreationModal = ({
   const handleClose = () => {
     setFormData({
       title: '',
-      description: '',
-      date: '',
-      time: '',
-      location: '',
       type: 'WORKSHOP',
+      description: '',
+      imageFile: null,
+      imageUrl: '',
+      startDate: '',
+      startTime: '',
+      endDate: '',
+      endTime: '',
+      locationType: 'ONSITE',
+      venue: '',
+      virtualEventLink: '',
+      registrationDeadlineDate: '',
+      registrationDeadlineTime: '',
+      foodAndDrinksProvided: false,
       maxAttendees: '',
       status: 'DRAFT',
     });
     setErrors({});
+    setPreviewImage(null);
     onClose();
   };
 
-  const handleInputChange = (field: keyof EventFormData, value: string) => {
+  const handleInputChange = (field: keyof EventFormData, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: undefined }));
@@ -196,7 +324,7 @@ export const EventCreationModal = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="bg-gray-800 border-gray-700 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="bg-gray-800 border-gray-700 text-white max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold text-white">
             {mode === 'create' ? 'Create New Event' : 'Edit Event'}
@@ -210,124 +338,354 @@ export const EventCreationModal = ({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Basic Information */}
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="title" className="text-sm font-medium text-gray-300">
-                Event Title *
-              </Label>
-              <Input
-                id="title"
-                value={formData.title}
-                onChange={(e) => handleInputChange('title', e.target.value)}
-                placeholder="Enter event title"
-                className="mt-1 bg-gray-700/50 border-gray-600 text-white placeholder-gray-400"
-              />
-              {errors.title && (
-                <p className="text-red-400 text-xs mt-1">{errors.title}</p>
-              )}
-            </div>
-
-            <div>
-              <Label htmlFor="description" className="text-sm font-medium text-gray-300">
-                Description *
-              </Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) => handleInputChange('description', e.target.value)}
-                placeholder="Describe your event..."
-                rows={4}
-                className="mt-1 bg-gray-700/50 border-gray-600 text-white placeholder-gray-400"
-              />
-              {errors.description && (
-                <p className="text-red-400 text-xs mt-1">{errors.description}</p>
-              )}
-            </div>
+          {/* Event Title */}
+          <div>
+            <Label htmlFor="title" className="text-sm font-medium text-gray-300">
+              Event Title *
+            </Label>
+            <Input
+              id="title"
+              value={formData.title}
+              onChange={(e) => handleInputChange('title', e.target.value)}
+              placeholder="Enter event title"
+              className="mt-1 bg-gray-700/50 border-gray-600 text-white placeholder-gray-400"
+            />
+            {errors.title && (
+              <p className="text-red-400 text-xs mt-1">{errors.title}</p>
+            )}
           </div>
 
-          {/* Date and Time */}
+          {/* Event Type */}
+          <div>
+            <Label htmlFor="type" className="text-sm font-medium text-gray-300">
+              Event Type *
+            </Label>
+            <Select value={formData.type} onValueChange={(value) => handleInputChange('type', value)}>
+              <SelectTrigger className="mt-1 bg-gray-700/50 border-gray-600 text-white">
+                <SelectValue placeholder="Select event type" />
+              </SelectTrigger>
+              <SelectContent className="bg-gray-800 border-gray-700">
+                {EVENT_TYPES.map((type) => (
+                  <SelectItem key={type.value} value={type.value} className="text-gray-300">
+                    {type.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {errors.type && (
+              <p className="text-red-400 text-xs mt-1">{errors.type}</p>
+            )}
+          </div>
+
+          {/* Event Description */}
+          <div>
+            <Label htmlFor="description" className="text-sm font-medium text-gray-300">
+              Event Description *
+            </Label>
+            <Textarea
+              id="description"
+              value={formData.description}
+              onChange={(e) => handleInputChange('description', e.target.value)}
+              placeholder="Describe your event, what attendees will learn, agenda, and any special requirements..."
+              rows={6}
+              className="mt-1 bg-gray-700/50 border-gray-600 text-white placeholder-gray-400"
+            />
+            {errors.description && (
+              <p className="text-red-400 text-xs mt-1">{errors.description}</p>
+            )}
+          </div>
+
+          {/* Event Banner */}
+          <div>
+            <Label className="text-sm font-medium text-gray-300">
+              Event Banner *
+            </Label>
+            <div className="mt-2 space-y-4">
+              {/* File Upload */}
+              <div 
+                className="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center hover:border-gray-500 cursor-pointer"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+                {previewImage ? (
+                  <div className="space-y-2">
+                    <img 
+                      src={previewImage} 
+                      alt="Event banner preview" 
+                      className="max-h-48 mx-auto rounded-lg object-cover"
+                    />
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPreviewImage(null);
+                        setFormData(prev => ({ ...prev, imageFile: null, imageUrl: '' }));
+                      }}
+                    >
+                      Remove Image
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Upload className="h-12 w-12 mx-auto text-gray-400" />
+                    <div>
+                      <p className="text-gray-300">Click to upload event banner</p>
+                      <p className="text-xs text-gray-500">Recommended: 16:9 aspect ratio (1920x1080px)</p>
+                      <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* URL Input Alternative */}
+              <div className="text-center text-gray-400 text-sm">or</div>
+              <div>
+                <Input
+                  value={formData.imageUrl}
+                  onChange={(e) => {
+                    handleInputChange('imageUrl', e.target.value);
+                    if (e.target.value) {
+                      setPreviewImage(e.target.value);
+                      setFormData(prev => ({ ...prev, imageFile: null }));
+                    }
+                  }}
+                  placeholder="Enter image URL"
+                  className="bg-gray-700/50 border-gray-600 text-white placeholder-gray-400"
+                />
+              </div>
+            </div>
+            {errors.imageUrl && (
+              <p className="text-red-400 text-xs mt-1">{errors.imageUrl}</p>
+            )}
+          </div>
+
+          {/* Start Date & Time */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="date" className="text-sm font-medium text-gray-300">
-                Date *
+              <Label htmlFor="startDate" className="text-sm font-medium text-gray-300">
+                Event Start Date *
               </Label>
               <div className="relative mt-1">
                 <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
-                  id="date"
+                  id="startDate"
                   type="date"
-                  value={formData.date}
-                  onChange={(e) => handleInputChange('date', e.target.value)}
+                  value={formData.startDate}
+                  onChange={(e) => handleInputChange('startDate', e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
                   className="pl-10 bg-gray-700/50 border-gray-600 text-white"
                 />
               </div>
-              {errors.date && (
-                <p className="text-red-400 text-xs mt-1">{errors.date}</p>
+              {errors.startDate && (
+                <p className="text-red-400 text-xs mt-1">{errors.startDate}</p>
               )}
             </div>
 
             <div>
-              <Label htmlFor="time" className="text-sm font-medium text-gray-300">
-                Time *
+              <Label htmlFor="startTime" className="text-sm font-medium text-gray-300">
+                Event Start Time *
               </Label>
               <div className="relative mt-1">
                 <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
-                  id="time"
+                  id="startTime"
                   type="time"
-                  value={formData.time}
-                  onChange={(e) => handleInputChange('time', e.target.value)}
+                  value={formData.startTime}
+                  onChange={(e) => handleInputChange('startTime', e.target.value)}
                   className="pl-10 bg-gray-700/50 border-gray-600 text-white"
                 />
               </div>
-              {errors.time && (
-                <p className="text-red-400 text-xs mt-1">{errors.time}</p>
+              {errors.startTime && (
+                <p className="text-red-400 text-xs mt-1">{errors.startTime}</p>
               )}
             </div>
           </div>
 
-          {/* Location and Type */}
+          {/* End Date & Time */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="location" className="text-sm font-medium text-gray-300">
-                Location *
+              <Label htmlFor="endDate" className="text-sm font-medium text-gray-300">
+                Event End Date *
+              </Label>
+              <div className="relative mt-1">
+                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  id="endDate"
+                  type="date"
+                  value={formData.endDate}
+                  onChange={(e) => handleInputChange('endDate', e.target.value)}
+                  min={formData.startDate || new Date().toISOString().split('T')[0]}
+                  className="pl-10 bg-gray-700/50 border-gray-600 text-white"
+                />
+              </div>
+              {errors.endDate && (
+                <p className="text-red-400 text-xs mt-1">{errors.endDate}</p>
+              )}
+            </div>
+
+            <div>
+              <Label htmlFor="endTime" className="text-sm font-medium text-gray-300">
+                Event End Time *
+              </Label>
+              <div className="relative mt-1">
+                <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  id="endTime"
+                  type="time"
+                  value={formData.endTime}
+                  onChange={(e) => handleInputChange('endTime', e.target.value)}
+                  className="pl-10 bg-gray-700/50 border-gray-600 text-white"
+                />
+              </div>
+              {errors.endTime && (
+                <p className="text-red-400 text-xs mt-1">{errors.endTime}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Location Type */}
+          <div>
+            <Label className="text-sm font-medium text-gray-300 mb-3 block">
+              Location Type *
+            </Label>
+            <RadioGroup 
+              value={formData.locationType} 
+              onValueChange={(value) => handleInputChange('locationType', value)}
+              className="grid grid-cols-2 gap-4"
+            >
+              <div className="flex items-center space-x-2 p-4 border border-gray-600 rounded-lg hover:border-gray-500">
+                <RadioGroupItem value="ONSITE" id="onsite" className="text-blue-400" />
+                <Label htmlFor="onsite" className="text-gray-300 cursor-pointer flex items-center space-x-2">
+                  <MapPin className="h-4 w-4" />
+                  <span>On-site</span>
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2 p-4 border border-gray-600 rounded-lg hover:border-gray-500">
+                <RadioGroupItem value="VIRTUAL" id="virtual" className="text-blue-400" />
+                <Label htmlFor="virtual" className="text-gray-300 cursor-pointer flex items-center space-x-2">
+                  <LinkIcon className="h-4 w-4" />
+                  <span>Virtual</span>
+                </Label>
+              </div>
+            </RadioGroup>
+            {errors.locationType && (
+              <p className="text-red-400 text-xs mt-1">{errors.locationType}</p>
+            )}
+          </div>
+
+          {/* Venue / Address (shown only if on-site) */}
+          {formData.locationType === 'ONSITE' && (
+            <div>
+              <Label htmlFor="venue" className="text-sm font-medium text-gray-300">
+                Venue / Address *
               </Label>
               <div className="relative mt-1">
                 <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
-                  id="location"
-                  value={formData.location}
-                  onChange={(e) => handleInputChange('location', e.target.value)}
-                  placeholder="Enter event location"
+                  id="venue"
+                  value={formData.venue}
+                  onChange={(e) => handleInputChange('venue', e.target.value)}
+                  placeholder="Enter venue name and address"
                   className="pl-10 bg-gray-700/50 border-gray-600 text-white placeholder-gray-400"
                 />
               </div>
-              {errors.location && (
-                <p className="text-red-400 text-xs mt-1">{errors.location}</p>
+              {errors.venue && (
+                <p className="text-red-400 text-xs mt-1">{errors.venue}</p>
+              )}
+            </div>
+          )}
+
+          {/* Virtual Event Link (shown only if virtual) */}
+          {formData.locationType === 'VIRTUAL' && (
+            <div>
+              <Label htmlFor="virtualEventLink" className="text-sm font-medium text-gray-300">
+                Virtual Event Link *
+              </Label>
+              <div className="relative mt-1">
+                <LinkIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  id="virtualEventLink"
+                  type="url"
+                  value={formData.virtualEventLink}
+                  onChange={(e) => handleInputChange('virtualEventLink', e.target.value)}
+                  placeholder="e.g., Zoom, Google Meet link"
+                  className="pl-10 bg-gray-700/50 border-gray-600 text-white placeholder-gray-400"
+                />
+              </div>
+              {errors.virtualEventLink && (
+                <p className="text-red-400 text-xs mt-1">{errors.virtualEventLink}</p>
+              )}
+            </div>
+          )}
+
+          {/* Registration Deadline */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="registrationDeadlineDate" className="text-sm font-medium text-gray-300">
+                Registration Deadline Date *
+              </Label>
+              <div className="relative mt-1">
+                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  id="registrationDeadlineDate"
+                  type="date"
+                  value={formData.registrationDeadlineDate}
+                  onChange={(e) => handleInputChange('registrationDeadlineDate', e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
+                  max={formData.startDate}
+                  className="pl-10 bg-gray-700/50 border-gray-600 text-white"
+                />
+              </div>
+              {errors.registrationDeadlineDate && (
+                <p className="text-red-400 text-xs mt-1">{errors.registrationDeadlineDate}</p>
               )}
             </div>
 
             <div>
-              <Label htmlFor="type" className="text-sm font-medium text-gray-300">
-                Event Type
+              <Label htmlFor="registrationDeadlineTime" className="text-sm font-medium text-gray-300">
+                Registration Deadline Time *
               </Label>
-              <Select value={formData.type} onValueChange={(value) => handleInputChange('type', value)}>
-                <SelectTrigger className="mt-1 bg-gray-700/50 border-gray-600 text-white">
-                  <SelectValue placeholder="Select event type" />
-                </SelectTrigger>
-                <SelectContent className="bg-gray-800 border-gray-700">
-                  {EVENT_TYPES.map((type) => (
-                    <SelectItem key={type.value} value={type.value} className="text-gray-300">
-                      {type.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="relative mt-1">
+                <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  id="registrationDeadlineTime"
+                  type="time"
+                  value={formData.registrationDeadlineTime}
+                  onChange={(e) => handleInputChange('registrationDeadlineTime', e.target.value)}
+                  className="pl-10 bg-gray-700/50 border-gray-600 text-white"
+                />
+              </div>
+              {errors.registrationDeadlineTime && (
+                <p className="text-red-400 text-xs mt-1">{errors.registrationDeadlineTime}</p>
+              )}
             </div>
           </div>
 
-          {/* Capacity and Status */}
+          {/* Food & Drinks Coordination */}
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="foodAndDrinksProvided"
+              checked={formData.foodAndDrinksProvided}
+              onCheckedChange={(checked) => handleInputChange('foodAndDrinksProvided', checked)}
+              className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+            />
+            <Label htmlFor="foodAndDrinksProvided" className="text-sm text-gray-300 cursor-pointer">
+              Food and/or drinks will be provided
+            </Label>
+          </div>
+          <p className="text-xs text-gray-500 ml-6">
+            If checked, dietary information may be requested from attendees during registration.
+          </p>
+
+          {/* Additional Settings */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="maxAttendees" className="text-sm font-medium text-gray-300">
@@ -366,20 +724,21 @@ export const EventCreationModal = ({
             </div>
           </div>
 
-          <DialogFooter className="flex space-x-2">
+          {/* Submit Buttons */}
+          <DialogFooter>
             <Button
               type="button"
               variant="outline"
               onClick={handleClose}
               disabled={eventMutation.isPending}
-              className="border-gray-600 text-gray-300 hover:bg-gray-700"
+              className="bg-transparent border-gray-600 text-gray-300 hover:bg-gray-700"
             >
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={eventMutation.isPending}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+              className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               {eventMutation.isPending ? (
                 <>

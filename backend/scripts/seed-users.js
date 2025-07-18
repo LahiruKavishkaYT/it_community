@@ -15,8 +15,13 @@ async function seedUsers() {
     if (existingAdmin) {
       console.log('✅ Admin user already exists');
     } else {
-      // Create admin user
-      const hashedPassword = await bcrypt.hash('admin123', 10);
+      if (process.env.NODE_ENV === 'production' && !process.env.ADMIN_PASSWORD) {
+        throw new Error('ADMIN_PASSWORD must be set in production. Aborting seeding.');
+      }
+
+      // Create admin user with secure password from environment (mandatory in prod, default only in dev)
+      const adminPassword = process.env.ADMIN_PASSWORD || 'SecureAdmin123!';
+      const hashedPassword = await bcrypt.hash(adminPassword, 12);
       const adminUser = await prisma.user.create({
         data: {
           email: 'admin@itcommunity.com',
@@ -30,13 +35,24 @@ async function seedUsers() {
         }
       });
       console.log('✅ Created admin user:', adminUser.email);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('🔑 Admin password:', adminPassword);
+      } else {
+        console.log('ℹ️  Admin password set via environment variable.');
+      }
     }
+
+    // Generate secure random password for test users
+    const generateSecurePassword = () => {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+      return Array.from({length: 12}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    };
 
     // Create test users for different roles
     const testUsers = [
       {
         email: 'sarah.johnson@email.com',
-        password: 'password123',
+        password: generateSecurePassword(),
         name: 'Sarah Johnson',
         role: 'PROFESSIONAL',
         company: 'Tech Corp',
@@ -46,7 +62,7 @@ async function seedUsers() {
       },
       {
         email: 'mike.chen@email.com',
-        password: 'password123',
+        password: generateSecurePassword(),
         name: 'Mike Chen',
         role: 'STUDENT',
         location: 'California',
@@ -55,7 +71,7 @@ async function seedUsers() {
       },
       {
         email: 'emma.davis@company.com',
-        password: 'password123',
+        password: generateSecurePassword(),
         name: 'Emma Davis',
         role: 'COMPANY',
         company: 'Startup Inc',
@@ -65,7 +81,7 @@ async function seedUsers() {
       },
       {
         email: 'alex.wong@email.com',
-        password: 'password123',
+        password: generateSecurePassword(),
         name: 'Alex Wong',
         role: 'PROFESSIONAL',
         company: 'Big Tech Co',
@@ -75,7 +91,7 @@ async function seedUsers() {
       },
       {
         email: 'lisa.garcia@email.com',
-        password: 'password123',
+        password: generateSecurePassword(),
         name: 'Lisa Garcia',
         role: 'STUDENT',
         location: 'Texas',
@@ -90,7 +106,7 @@ async function seedUsers() {
       });
 
       if (!existingUser) {
-        const hashedPassword = await bcrypt.hash(userData.password, 10);
+        const hashedPassword = await bcrypt.hash(userData.password, 12);
         const user = await prisma.user.create({
           data: {
             ...userData,
@@ -98,6 +114,9 @@ async function seedUsers() {
           }
         });
         console.log(`✅ Created ${userData.role} user:`, user.email);
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`   • Password: ${userData.password}`);
+        }
       } else {
         console.log(`⏭️  ${userData.role} user already exists:`, userData.email);
       }
@@ -121,9 +140,11 @@ async function seedUsers() {
     });
 
     console.log('\n🎉 User seeding completed successfully!');
-    console.log('\n🔑 Admin credentials:');
-    console.log('  Email: admin@itcommunity.com');
-    console.log('  Password: admin123');
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('\n🔑 Admin credentials:');
+      console.log('  Email: admin@itcommunity.com');
+      console.log('  Password:', process.env.ADMIN_PASSWORD || 'SecureAdmin123!');
+    }
 
   } catch (error) {
     console.error('❌ Error seeding users:', error);

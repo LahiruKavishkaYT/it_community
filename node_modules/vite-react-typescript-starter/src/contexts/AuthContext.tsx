@@ -1,10 +1,14 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, UserRole } from '../types';
+import { User, UserRole, OAuthCallbackData } from '../types';
 import * as api from '../services/api';
+import { OAuthService } from '../services/oauth.service';
 
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string, role?: UserRole) => Promise<void>;
+  loginWithGoogle: () => void;
+  loginWithGitHub: () => void;
+  handleOAuthCallback: (callbackData: OAuthCallbackData) => void;
   logout: () => void;
   updateUser: (user: User) => void;
   isLoading: boolean;
@@ -67,8 +71,29 @@ function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  const loginWithGoogle = () => {
+    OAuthService.loginWithGoogle();
+  };
+
+  const loginWithGitHub = () => {
+    OAuthService.loginWithGitHub();
+  };
+
+  const handleOAuthCallback = (callbackData: OAuthCallbackData) => {
+    // Store token and user data from OAuth
+    localStorage.setItem('token', callbackData.access_token);
+    if (callbackData.refresh_token) {
+      localStorage.setItem('refresh_token', callbackData.refresh_token);
+    }
+    setUser(callbackData.user);
+    
+    // Clear callback parameters from URL
+    OAuthService.clearCallbackParams();
+  };
+
   const logout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('refresh_token');
     setUser(null);
   };
 
@@ -77,7 +102,16 @@ function AuthProvider({ children }: AuthProviderProps) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, updateUser, isLoading }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      login, 
+      loginWithGoogle, 
+      loginWithGitHub, 
+      handleOAuthCallback, 
+      logout, 
+      updateUser, 
+      isLoading 
+    }}>
       {children}
     </AuthContext.Provider>
   );

@@ -10,6 +10,7 @@ import { EventsModule } from './modules/events/events.module';
 import { JobsModule } from './modules/jobs/jobs.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { ActivitiesModule } from './modules/activities/activities.module';
+import { NotificationModule } from './modules/notifications/notification.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { ActivitiesModule } from './modules/activities/activities.module';
     JobsModule,
     AdminModule,
     ActivitiesModule,
+    NotificationModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsArray, IsOptional, IsUrl } from 'class-validator';
+import { IsString, IsNotEmpty, IsArray, IsOptional, IsUrl, IsBoolean } from 'class-validator';
 
 export class CreateProjectDto {
   @IsString()
@@ -38,4 +38,21 @@ export class CreateProjectDto {
   @IsArray()
   @IsString({ each: true })
   keyFeatures?: string[];
+
+  // Learning Project specific fields
+  @IsOptional()
+  @IsString()
+  projectCategory?: string;
+
+  @IsOptional()
+  @IsString()
+  difficultyLevel?: string;
+
+  @IsOptional()
+  @IsString()
+  estimatedTime?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isLearningProject?: boolean;
 } 

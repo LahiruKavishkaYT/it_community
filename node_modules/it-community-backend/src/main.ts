@@ -2,8 +2,16 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { validateEnvironmentVariables } from './common/config/env-validation';
+import * as dotenv from 'dotenv';
 
 async function bootstrap() {
+  // Load .env file first
+  dotenv.config();
+  
+  // Temporarily disabled for development - validation runs before NestJS ConfigModule loads
+  // validateEnvironmentVariables();
+  
   const app = await NestFactory.create(AppModule);
   
   // Enable global validation
@@ -15,21 +23,31 @@ async function bootstrap() {
     }),
   );
 
-  // Enable CORS for frontend communication
+  // Enable CORS – dev vs production
+  const devOrigins = [
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://localhost:3000',
+    'http://localhost:4173',
+    'http://localhost:8080',
+    'http://localhost:8081',
+    'http://localhost:8082',
+    'http://localhost:4200',
+  ];
+
+  // Allow env-specified origins always
+  const envOrigins = [
+    ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : []),
+    ...(process.env.ADMIN_DASHBOARD_URL ? [process.env.ADMIN_DASHBOARD_URL] : []),
+    ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()) : []),
+  ];
+
+  const allowOrigins = process.env.NODE_ENV === 'production'
+    ? envOrigins // Prod – explicit list only
+    : [...devOrigins, ...envOrigins]; // Dev – include localhost helpers
+
   app.enableCors({
-    origin: [
-      'http://localhost:5173', // Community Frontend (Vite)
-      'http://localhost:5174', // Admin Dashboard Frontend (Vite)
-      'http://localhost:3000', // Alternative React dev server
-      'http://localhost:4173', // Vite preview mode
-      'http://localhost:8080', // Common dev server port
-      'http://localhost:8081', // Admin dashboard port
-      'http://localhost:8082', // Admin dashboard port (alternative)
-      'http://localhost:3000', // React dev server
-      'http://localhost:4200', // Angular dev server
-      ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : []),
-      ...(process.env.ADMIN_DASHBOARD_URL ? [process.env.ADMIN_DASHBOARD_URL] : [])
-    ],
+    origin: allowOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],

@@ -21,44 +21,9 @@ import {
   ThumbsDown
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { adminAPI } from '@/services/api';
+import { adminAPI, Project } from '@/services/api';
 import { toast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-
-interface Project {
-  id: string;
-  title: string;
-  description: string;
-  projectType: 'STUDENT_PROJECT' | 'PRACTICE_PROJECT';
-  status: 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'DRAFT';
-  author: {
-    id: string;
-    name: string;
-    email: string;
-    role: string;
-    avatar?: string;
-  };
-  technologies: string[];
-  githubUrl?: string;
-  liveUrl?: string;
-  imageUrl?: string;
-  architecture?: string;
-  learningObjectives: string[];
-  keyFeatures: string[];
-  createdAt: string;
-  submittedAt?: string;
-  reviewedBy?: {
-    id: string;
-    name: string;
-    email: string;
-  };
-  reviewedAt?: string;
-  approvalNotes?: string;
-  rejectionReason?: string;
-  _count: {
-    feedback: number;
-  };
-}
 
 interface ProjectApprovalPanelProps {
   className?: string;
@@ -76,17 +41,20 @@ export const ProjectApprovalPanel: React.FC<ProjectApprovalPanelProps> = ({ clas
   const { 
     data: pendingProjects, 
     isLoading, 
-    error 
+    error,
+    refetch
   } = useQuery({
     queryKey: ['admin', 'projects', 'pending'],
-    queryFn: () => adminAPI.getProjects({ status: 'PENDING_APPROVAL', limit: 10 }),
+    queryFn: () => adminAPI.content.getProjects({ status: 'pending', limit: 10 }),
     refetchInterval: 30000, // Refetch every 30 seconds
+    retry: 3, // Retry failed requests up to 3 times
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
   });
 
   // Approve project mutation
   const approveMutation = useMutation({
     mutationFn: ({ projectId, notes }: { projectId: string; notes?: string }) =>
-      adminAPI.approveProject(projectId, notes),
+      adminAPI.content.approveProject(projectId, notes),
     onSuccess: () => {
       toast({
         title: 'Project Approved',
@@ -99,10 +67,20 @@ export const ProjectApprovalPanel: React.FC<ProjectApprovalPanelProps> = ({ clas
       setSelectedProject(null);
       setApprovalNotes('');
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      console.error('Project approval error:', error);
+      
+      let errorMessage = 'Failed to approve project. Please try again.';
+      
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
-        title: 'Error',
-        description: 'Failed to approve project. Please try again.',
+        title: 'Approval Failed',
+        description: errorMessage,
         variant: 'destructive',
       });
     },
@@ -111,7 +89,7 @@ export const ProjectApprovalPanel: React.FC<ProjectApprovalPanelProps> = ({ clas
   // Reject project mutation
   const rejectMutation = useMutation({
     mutationFn: ({ projectId, reason }: { projectId: string; reason: string }) =>
-      adminAPI.rejectProject(projectId, reason),
+      adminAPI.content.rejectProject(projectId, reason),
     onSuccess: () => {
       toast({
         title: 'Project Rejected',
@@ -124,27 +102,63 @@ export const ProjectApprovalPanel: React.FC<ProjectApprovalPanelProps> = ({ clas
       setSelectedProject(null);
       setRejectionReason('');
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      console.error('Project rejection error:', error);
+      
+      let errorMessage = 'Failed to reject project. Please try again.';
+      
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
-        title: 'Error',
-        description: 'Failed to reject project. Please try again.',
+        title: 'Rejection Failed',
+        description: errorMessage,
         variant: 'destructive',
       });
     },
   });
 
+  const isProjectPendingApproval = (project: Project) => {
+    return project.status === 'pending' || project.status === 'flagged';
+  };
+
   const handleApprove = (project: Project) => {
+    if (!isProjectPendingApproval(project)) {
+      toast({
+        title: 'Cannot Approve',
+        description: `Project is not pending approval. Current status: ${project.status}`,
+        variant: 'destructive',
+      });
+      return;
+    }
     setSelectedProject(project);
     setIsApprovalDialogOpen(true);
   };
 
   const handleReject = (project: Project) => {
+    if (!isProjectPendingApproval(project)) {
+      toast({
+        title: 'Cannot Reject',
+        description: `Project is not pending approval. Current status: ${project.status}`,
+        variant: 'destructive',
+      });
+      return;
+    }
     setSelectedProject(project);
     setIsRejectionDialogOpen(true);
   };
 
   const handleApproveSubmit = () => {
     if (!selectedProject) return;
+    
+    // Show confirmation dialog
+    if (!confirm(`Are you sure you want to approve "${selectedProject.title}"?`)) {
+      return;
+    }
+    
     approveMutation.mutate({
       projectId: selectedProject.id,
       notes: approvalNotes.trim() || undefined,
@@ -160,6 +174,12 @@ export const ProjectApprovalPanel: React.FC<ProjectApprovalPanelProps> = ({ clas
       });
       return;
     }
+    
+    // Show confirmation dialog
+    if (!confirm(`Are you sure you want to reject "${selectedProject.title}"?`)) {
+      return;
+    }
+    
     rejectMutation.mutate({
       projectId: selectedProject.id,
       reason: rejectionReason.trim(),
@@ -168,26 +188,28 @@ export const ProjectApprovalPanel: React.FC<ProjectApprovalPanelProps> = ({ clas
 
   const getStatusBadge = (status: string) => {
     switch (status) {
+      case 'pending':
       case 'PENDING_APPROVAL':
         return <Badge variant="secondary" className="bg-yellow-500/20 text-yellow-300 border-yellow-500/30"><Clock className="w-3 h-3 mr-1" />Pending</Badge>;
+      case 'approved':
       case 'APPROVED':
+      case 'published':
+      case 'PUBLISHED':
         return <Badge variant="default" className="bg-green-500/20 text-green-300 border-green-500/30"><CheckCircle className="w-3 h-3 mr-1" />Approved</Badge>;
+      case 'rejected':
       case 'REJECTED':
         return <Badge variant="destructive" className="bg-red-500/20 text-red-300 border-red-500/30"><XCircle className="w-3 h-3 mr-1" />Rejected</Badge>;
+      case 'draft':
+      case 'DRAFT':
+        return <Badge variant="outline" className="bg-gray-500/20 text-gray-300 border-gray-500/30">Draft</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
   };
 
   const getProjectTypeBadge = (type: string) => {
-    switch (type) {
-      case 'STUDENT_PROJECT':
-        return <Badge variant="outline" className="bg-blue-500/20 text-blue-300 border-blue-500/30">Student</Badge>;
-      case 'PRACTICE_PROJECT':
-        return <Badge variant="outline" className="bg-purple-500/20 text-purple-300 border-purple-500/30">Practice</Badge>;
-      default:
-        return <Badge variant="outline">{type}</Badge>;
-    }
+    // Since projectType is not available in the API Project interface, we'll show a generic badge
+    return <Badge variant="outline" className="bg-blue-500/20 text-blue-300 border-blue-500/30">Project</Badge>;
   };
 
   if (error) {
@@ -197,14 +219,24 @@ export const ProjectApprovalPanel: React.FC<ProjectApprovalPanelProps> = ({ clas
           <div className="text-center">
             <AlertTriangle className="h-8 w-8 text-red-400 mx-auto mb-2" />
             <p className="text-red-300 mb-4">Failed to load pending projects</p>
-            <Button 
-              onClick={() => window.location.reload()} 
-              variant="outline" 
-              size="sm"
-              className="border-red-500/50 text-red-300 hover:bg-red-500/10"
-            >
-              Retry
-            </Button>
+            <div className="flex gap-2 justify-center">
+              <Button 
+                onClick={() => refetch()} 
+                variant="outline" 
+                size="sm"
+                className="border-red-500/50 text-red-300 hover:bg-red-500/10"
+              >
+                Retry
+              </Button>
+              <Button 
+                onClick={() => window.location.reload()} 
+                variant="outline" 
+                size="sm"
+                className="border-gray-500/50 text-gray-300 hover:bg-gray-500/10"
+              >
+                Refresh Page
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -228,8 +260,12 @@ export const ProjectApprovalPanel: React.FC<ProjectApprovalPanelProps> = ({ clas
         <CardContent className="space-y-4">
           {isLoading ? (
             <div className="space-y-3">
+              <div className="text-center py-4">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-2"></div>
+                <p className="text-gray-400 text-sm">Loading pending projects...</p>
+              </div>
               {[...Array(3)].map((_, i) => (
-                <div key={i} className="flex items-center space-x-4 p-4 border border-gray-700 rounded-lg">
+                <div key={i} className="flex items-center space-x-4 p-4 border border-gray-700 rounded-lg animate-pulse">
                   <Skeleton className="h-12 w-12 rounded-full bg-gray-700" />
                   <div className="space-y-2 flex-1">
                     <Skeleton className="h-4 w-3/4 bg-gray-700" />
@@ -254,7 +290,7 @@ export const ProjectApprovalPanel: React.FC<ProjectApprovalPanelProps> = ({ clas
                       <div className="flex items-center gap-2 mb-2">
                         <h3 className="font-semibold text-white text-lg">{project.title}</h3>
                         {getStatusBadge(project.status)}
-                        {getProjectTypeBadge(project.projectType)}
+                        {getProjectTypeBadge('project')}
                       </div>
                       <p className="text-gray-400 text-sm line-clamp-2">{project.description}</p>
                     </div>
@@ -268,7 +304,7 @@ export const ProjectApprovalPanel: React.FC<ProjectApprovalPanelProps> = ({ clas
                       </div>
                       <div className="flex items-center gap-1">
                         <Calendar className="w-4 h-4" />
-                        <span>{new Date(project.submittedAt || project.createdAt).toLocaleDateString()}</span>
+                        <span>{new Date(project.createdAt).toLocaleDateString()}</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -327,7 +363,8 @@ export const ProjectApprovalPanel: React.FC<ProjectApprovalPanelProps> = ({ clas
                         size="sm"
                         onClick={() => handleReject(project)}
                         className="border-red-500/50 text-red-300 hover:bg-red-500/10"
-                        disabled={rejectMutation.isPending}
+                        disabled={rejectMutation.isPending || !isProjectPendingApproval(project)}
+                        title={!isProjectPendingApproval(project) ? `Cannot reject project with status: ${project.status}` : 'Reject project'}
                       >
                         <ThumbsDown className="w-4 h-4 mr-1" />
                         Reject
@@ -336,7 +373,8 @@ export const ProjectApprovalPanel: React.FC<ProjectApprovalPanelProps> = ({ clas
                         size="sm"
                         onClick={() => handleApprove(project)}
                         className="bg-green-600 hover:bg-green-700 text-white"
-                        disabled={approveMutation.isPending}
+                        disabled={approveMutation.isPending || !isProjectPendingApproval(project)}
+                        title={!isProjectPendingApproval(project) ? `Cannot approve project with status: ${project.status}` : 'Approve project'}
                       >
                         <ThumbsUp className="w-4 h-4 mr-1" />
                         Approve

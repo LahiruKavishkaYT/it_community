@@ -38,7 +38,7 @@ enum ProjectStatus {
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
-  password  String
+  password  String?  // Made optional for OAuth users
   name      String
   role      UserRole @default(STUDENT)
   avatar    String?
@@ -48,6 +48,11 @@ model User {
   location  String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // OAuth fields
+  googleId  String?  @unique
+  githubId  String?  @unique
+  provider  String?  // 'local', 'google', 'github'
 
   // Relations
   projects          Project[]
@@ -59,6 +64,13 @@ model User {
   eventAttendances  EventAttendee[]
   activities        Activity[]
   projectReviews    Project[]       @relation("ProjectReviews")
+  
+  // Notification relations
+  notifications     Notification[]
+  notificationSettings UserNotificationSettings?
+
+  // Security relations
+  refreshTokens     RefreshToken[]
 
   @@map("users")
 }
@@ -78,6 +90,12 @@ model Project {
   architecture      String?
   learningObjectives String[]
   keyFeatures       String[]
+  
+  // Learning project specific fields
+  projectCategory   String?       // Frontend, Backend, Full Stack, etc.
+  difficultyLevel   String?       // Beginner, Intermediate, Advanced
+  estimatedTime     String?
+  isLearningProject Boolean       @default(false)
   
   // Approval workflow fields
   submittedAt       DateTime?
@@ -118,6 +136,7 @@ enum EventType {
   NETWORKING
   HACKATHON
   SEMINAR
+  RECRUITMENT_DRIVE
 }
 
 enum EventStatus {
@@ -134,14 +153,29 @@ enum AttendeeStatus {
   WAITLIST
 }
 
+enum LocationType {
+  ONSITE
+  VIRTUAL
+}
+
 model Event {
   id               String    @id @default(cuid())
   title            String
   description      String
   organizer        User      @relation(fields: [organizerId], references: [id], onDelete: Cascade)
   organizerId      String
-  date             DateTime
-  location         String
+  
+  // Enhanced date/time fields
+  startDateTime    DateTime
+  endDateTime      DateTime?
+  date             DateTime? // Legacy field for backward compatibility
+  
+  // Enhanced location fields
+  locationType     LocationType @default(ONSITE)
+  venue            String?
+  virtualEventLink String?
+  location         String? // Legacy field for backward compatibility
+  
   type             EventType
   status           EventStatus @default(PUBLISHED)
   maxAttendees     Int?
@@ -151,6 +185,7 @@ model Event {
   // Enhanced food and drinks coordination
   foodProvided     Boolean   @default(false)
   drinksProvided   Boolean   @default(false)
+  foodAndDrinksProvided Boolean @default(false)
   foodDetails      String?
   drinkDetails     String?
   dietaryRestrictions String[]
@@ -158,7 +193,7 @@ model Event {
   
   // Registration settings
   requireApproval  Boolean   @default(false)
-  registrationDeadline DateTime?
+  registrationDeadline DateTime
   registrationInstructions String?
   requiredFields   String[]
   
@@ -349,6 +384,11 @@ enum ActivityType {
   JOB_APPLICATION
   EVENT_REGISTRATION
   PROJECT_FEEDBACK
+  EVENT_APPROVED
+  EVENT_REJECTED
+  JOB_APPROVED
+  JOB_REJECTED
+  APPLICATION_STATUS_UPDATED
 }
 
 model Activity {
@@ -362,4 +402,94 @@ model Activity {
   createdAt   DateTime     @default(now())
 
   @@map("activities")
+}
+
+enum NotificationType {
+  PROJECT_SUBMITTED
+  PROJECT_APPROVED
+  PROJECT_REJECTED
+  PROJECT_NEEDS_APPROVAL
+  SYSTEM_MESSAGE
+  USER_WELCOME
+  ADMIN_ALERT
+  EVENT_NOTIFICATION
+  JOB_NOTIFICATION
+  APPLICATION_UPDATE
+}
+
+enum NotificationPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model Notification {
+  id          String             @id @default(cuid())
+  type        NotificationType
+  title       String
+  message     String
+  priority    NotificationPriority @default(MEDIUM)
+  
+  // Target user (null for system-wide notifications)
+  user        User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String?
+  
+  // Related item (optional)
+  itemId      String?            // ID of related project, job, event, etc.
+  itemType    String?            // Type of related item (project, job, event, etc.)
+  
+  // Notification state
+  isRead      Boolean            @default(false)
+  isArchived  Boolean            @default(false)
+  
+  // Metadata
+  metadata    Json?              // Additional data (e.g., project details, admin notes)
+  
+  createdAt   DateTime           @default(now())
+  readAt      DateTime?
+  expiresAt   DateTime?          // Optional expiration date
+
+  @@map("notifications")
+}
+
+// User notification preferences
+model UserNotificationSettings {
+  id                    String   @id @default(cuid())
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId                String   @unique
+  
+  // Email notifications
+  emailProjectUpdates   Boolean  @default(true)
+  emailSystemMessages   Boolean  @default(true)
+  emailAdminMessages    Boolean  @default(true)
+  
+  // Push notifications (for future mobile app)
+  pushProjectUpdates    Boolean  @default(true)
+  pushSystemMessages    Boolean  @default(true)
+  pushAdminMessages     Boolean  @default(true)
+  
+  // In-app notifications
+  inAppProjectUpdates   Boolean  @default(true)
+  inAppSystemMessages   Boolean  @default(true)
+  inAppAdminMessages    Boolean  @default(true)
+  
+  // Frequency settings
+  digestFrequency       String   @default("immediate") // immediate, daily, weekly
+  
+  updatedAt             DateTime @updatedAt
+
+  @@map("user_notification_settings")
+}
+
+// Refresh token model for JWT security
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique // Hashed refresh token
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("refresh_tokens")
 }

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Search, Filter, Plus, MoreHorizontal, Shield, Mail, Calendar, Loader2, RefreshCw, UserX, Edit } from "lucide-react";
+import { Search, Filter, Plus, MoreHorizontal, Shield, Mail, Calendar, Loader2, RefreshCw, UserX, Edit, Eye, Download } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,10 @@ import {
 import { userAPI, User, analyticsAPI } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
+import { UserDetailsModal } from "./UserDetailsModal";
+import { CreateUserModal } from "./CreateUserModal";
+import { BulkActionsBar } from "./BulkActionsBar";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const ROLES = ['STUDENT', 'PROFESSIONAL', 'COMPANY', 'ADMIN'] as const;
 
@@ -76,6 +80,9 @@ export const UserManagement = () => {
   const [page, setPage] = useState(1);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isUserDetailsOpen, setIsUserDetailsOpen] = useState(false);
+  const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   
   const { hasPermission } = useAuth();
   const queryClient = useQueryClient();
@@ -214,6 +221,65 @@ export const UserManagement = () => {
     }
   };
 
+  const handleViewUser = (user: User) => {
+    setSelectedUser(user);
+    setIsUserDetailsOpen(true);
+  };
+
+  const handleExportUsers = () => {
+    if (!usersData?.users) return;
+    
+    const csvContent = [
+      ['Name', 'Email', 'Role', 'Status', 'Company', 'Location', 'Join Date', 'Projects', 'Events'].join(','),
+      ...usersData.users.map(user => [
+        user.name,
+        user.email,
+        user.role,
+        user.status,
+        user.company || '',
+        user.location || '',
+        user.joinDate,
+        user.projects,
+        user.events
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `users_export_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+
+    toast({
+      title: "Export Complete",
+      description: "Users data has been exported to CSV",
+    });
+  };
+
+  const handleUserSelection = (userId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedUserIds(prev => [...prev, userId]);
+    } else {
+      setSelectedUserIds(prev => prev.filter(id => id !== userId));
+    }
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked && usersData?.users) {
+      setSelectedUserIds(usersData.users.map(user => user.id));
+    } else {
+      setSelectedUserIds([]);
+    }
+  };
+
+  const handleBulkAction = (action: string, data?: any) => {
+    console.log('Bulk action:', action, 'on users:', selectedUserIds, 'data:', data);
+    // Here you would implement the actual bulk actions with API calls
+    // For now, just simulate the actions
+  };
+
   if (!hasPermission('users.read')) {
     return (
       <div className="text-center py-12">
@@ -237,8 +303,20 @@ export const UserManagement = () => {
             <RefreshCw className={`w-4 h-4 mr-2 ${usersLoading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
+          <Button 
+            variant="outline" 
+            onClick={handleExportUsers}
+            disabled={!usersData?.users?.length}
+            className="border-gray-600 text-gray-300 hover:bg-gray-700"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Export
+          </Button>
           {hasPermission('users.create') && (
-            <Button className="bg-blue-600 hover:bg-blue-700">
+            <Button 
+              onClick={() => setIsCreateUserOpen(true)}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
               <Plus className="w-4 h-4 mr-2" />
               Add User
             </Button>
@@ -302,6 +380,13 @@ export const UserManagement = () => {
         </Card>
       </div>
 
+      {/* Bulk Actions Bar */}
+      <BulkActionsBar
+        selectedUserIds={selectedUserIds}
+        onClearSelection={() => setSelectedUserIds([])}
+        onBulkAction={handleBulkAction}
+      />
+
       {/* Main Users Table */}
       <Card className="bg-gray-800 border-gray-700">
         <CardHeader>
@@ -355,6 +440,13 @@ export const UserManagement = () => {
             <Table>
               <TableHeader>
                 <TableRow className="border-gray-700">
+                  <TableHead className="text-gray-300 w-12">
+                    <Checkbox
+                      checked={usersData?.users?.length ? selectedUserIds.length === usersData.users.length : false}
+                      onCheckedChange={handleSelectAll}
+                      className="border-gray-600"
+                    />
+                  </TableHead>
                   <TableHead className="text-gray-300">User</TableHead>
                   <TableHead className="text-gray-300">Role</TableHead>
                   <TableHead className="text-gray-300">Status</TableHead>
@@ -368,6 +460,13 @@ export const UserManagement = () => {
               <TableBody>
                 {usersData.users.map((user) => (
                   <TableRow key={user.id} className="border-gray-700">
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedUserIds.includes(user.id)}
+                        onCheckedChange={(checked) => handleUserSelection(user.id, checked as boolean)}
+                        className="border-gray-600"
+                      />
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-3">
                         <Avatar className="h-10 w-10">
@@ -431,9 +530,10 @@ export const UserManagement = () => {
                           <DropdownMenuSeparator className="bg-gray-700" />
                           <DropdownMenuItem 
                             className="text-gray-300 hover:bg-gray-700"
+                            onClick={() => handleViewUser(user)}
                             disabled={!hasPermission('users.read')}
                           >
-                            <Edit className="mr-2 h-4 w-4" />
+                            <Eye className="mr-2 h-4 w-4" />
                             View Profile
                           </DropdownMenuItem>
                           {user.status !== 'suspended' && (
@@ -523,6 +623,22 @@ export const UserManagement = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* User Details Modal */}
+      <UserDetailsModal
+        user={selectedUser}
+        isOpen={isUserDetailsOpen}
+        onClose={() => {
+          setIsUserDetailsOpen(false);
+          setSelectedUser(null);
+        }}
+      />
+
+      {/* Create User Modal */}
+      <CreateUserModal
+        isOpen={isCreateUserOpen}
+        onClose={() => setIsCreateUserOpen(false)}
+      />
     </div>
   );
 };

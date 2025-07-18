@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '../components/UI/Card';
 import Button from '../components/UI/Button';
+import SuccessPopup from '../components/UI/SuccessPopup';
 import { createProject } from '../services/api';
 
 const CreateProjectPage: React.FC = () => {
@@ -24,6 +25,8 @@ const CreateProjectPage: React.FC = () => {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [createdProjectTitle, setCreatedProjectTitle] = useState('');
   
   const [formData, setFormData] = useState({
     title: '',
@@ -166,8 +169,9 @@ const CreateProjectPage: React.FC = () => {
       // Update stats in real-time
       incrementProjectCount();
 
-      // Navigate back to projects page on success
-      navigate('/projects');
+      // Store project title and show success popup
+      setCreatedProjectTitle(formData.title.trim());
+      setShowSuccessPopup(true);
     } catch (err) {
       setError('Failed to create project. Please try again.');
       console.error('Error creating project:', err);
@@ -577,6 +581,19 @@ const CreateProjectPage: React.FC = () => {
           </form>
         </CardContent>
       </Card>
+
+      {/* Success Popup */}
+      <SuccessPopup
+        isOpen={showSuccessPopup}
+        onClose={() => {
+          setShowSuccessPopup(false);
+          navigate('/projects');
+        }}
+        type="project"
+        workflow="pre-approval"
+        title={createdProjectTitle}
+        autoClose={false}
+      />
     </div>
   );
 };

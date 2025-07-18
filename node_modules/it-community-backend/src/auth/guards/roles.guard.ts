@@ -19,21 +19,18 @@ export class RolesGuard implements CanActivate {
     
     const { user } = context.switchToHttp().getRequest();
     
-    // Debug: Log role checking details
-    console.log('Roles Guard Debug:', {
-      requiredRoles,
-      userRole: user?.role,
-      userRoleType: typeof user?.role,
-      userExists: !!user,
-      roleMatch: requiredRoles.some((role) => user.role === role),
-      exactComparisons: requiredRoles.map(role => ({
-        required: role,
-        actual: user?.role,
-        match: role === user?.role,
-        strictMatch: role === user?.role && typeof role === typeof user?.role
-      }))
-    });
+    // Secure logging - only log authorization failures for security monitoring
+    const hasAccess = requiredRoles.some((role) => user.role === role);
     
-    return requiredRoles.some((role) => user.role === role);
+    if (!hasAccess && process.env.NODE_ENV !== 'test') {
+      console.warn('Authorization denied:', {
+        timestamp: new Date().toISOString(),
+        userId: user?.id?.substring(0, 8) + '...' || 'unknown',
+        requiredRoles: requiredRoles.length,
+        hasUser: !!user
+      });
+    }
+    
+    return hasAccess;
   }
 } 

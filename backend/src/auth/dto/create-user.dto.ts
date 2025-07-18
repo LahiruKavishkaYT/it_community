@@ -1,4 +1,4 @@
-import { IsEmail, IsString, IsEnum, IsOptional, MinLength } from 'class-validator';
+import { IsEmail, IsString, IsEnum, IsOptional, MinLength, Matches } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { UserRole } from '../../../generated/prisma';
 
@@ -57,4 +57,42 @@ export class CreateUserDto {
   @IsEnum(UserRole)
   @IsOptional()
   role?: UserRole;
+}
+
+export class CreateCompanyDto {
+  @ApiProperty({
+    description: 'Company name',
+    example: 'Tech Solutions Inc.',
+    minLength: 2,
+    maxLength: 100,
+  })
+  @IsString()
+  @MinLength(2)
+  companyName: string;
+
+  @ApiProperty({
+    description: 'Company email address (must be unique)',
+    example: 'contact@techsolutions.com',
+    format: 'email',
+    uniqueItems: true,
+  })
+  @IsEmail()
+  email: string;
+
+  @ApiProperty({
+    description: 'Strong password (minimum 8 characters, must include uppercase, lowercase, number, and special character)',
+    example: 'MySecurePassword123!',
+    minLength: 8,
+    writeOnly: true,
+    format: 'password',
+  })
+  @IsString()
+  @MinLength(8, { message: 'Password must be at least 8 characters long' })
+  @Matches(
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/,
+    {
+      message: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'
+    }
+  )
+  password: string;
 } 

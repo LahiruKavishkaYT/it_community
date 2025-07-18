@@ -13,6 +13,7 @@ interface JobApplicationModalProps {
     resume: File | null;
     portfolio?: string;
   }) => void;
+  hasApplied?: boolean;
 }
 
 const JobApplicationModal: React.FC<JobApplicationModalProps> = ({
@@ -20,7 +21,8 @@ const JobApplicationModal: React.FC<JobApplicationModalProps> = ({
   onClose,
   jobTitle,
   companyName,
-  onSubmit
+  onSubmit,
+  hasApplied = false
 }) => {
   const [formData, setFormData] = useState({
     coverLetter: '',
@@ -85,6 +87,11 @@ const JobApplicationModal: React.FC<JobApplicationModalProps> = ({
           </CardHeader>
           
           <CardContent>
+            {hasApplied && (
+              <div className="mb-4 p-3 bg-yellow-900/60 border border-yellow-700 text-yellow-300 rounded">
+                <strong>Note:</strong> You have already applied for this job. You cannot submit another application.
+              </div>
+            )}
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Cover Letter */}
               <div>
@@ -99,6 +106,7 @@ const JobApplicationModal: React.FC<JobApplicationModalProps> = ({
                   rows={6}
                   required
                   className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                  disabled={hasApplied}
                 />
               </div>
 
@@ -114,6 +122,7 @@ const JobApplicationModal: React.FC<JobApplicationModalProps> = ({
                       accept=".pdf,.doc,.docx"
                       onChange={handleFileChange}
                       className="hidden"
+                      disabled={hasApplied}
                     />
                     <div className="flex items-center space-x-2 px-4 py-2 bg-gray-700 border border-gray-600 rounded-md hover:bg-gray-600 transition-colors">
                       <Upload className="h-4 w-4 text-gray-400" />
@@ -144,6 +153,7 @@ const JobApplicationModal: React.FC<JobApplicationModalProps> = ({
                   onChange={(e) => setFormData(prev => ({ ...prev, portfolio: e.target.value }))}
                   placeholder="https://github.com/yourusername or https://yourportfolio.com"
                   className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  disabled={hasApplied}
                 />
               </div>
 
@@ -159,10 +169,10 @@ const JobApplicationModal: React.FC<JobApplicationModalProps> = ({
                 </Button>
                 <Button
                   type="submit"
-                  disabled={!formData.coverLetter || !resume || isSubmitting}
+                  disabled={!formData.coverLetter || !resume || isSubmitting || hasApplied}
                   className="flex-1"
                 >
-                  {isSubmitting ? 'Submitting...' : 'Submit Application'}
+                  {hasApplied ? 'Already Applied' : (isSubmitting ? 'Submitting...' : 'Submit Application')}
                 </Button>
               </div>
             </form>

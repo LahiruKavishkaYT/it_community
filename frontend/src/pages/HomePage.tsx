@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '../components/UI/Card';
 import Button from '../components/UI/Button';
+import CareerPathCard from '../components/UI/CareerPathCard';
 import { HoverEffect } from '../components/UI/HoverEffect';
 import { GlowCard } from '../components/UI/SpotlightCard';
 import { UserJourneyPricing } from '../components/UI/UserJourneyPricing';
@@ -601,7 +602,7 @@ const HomePage: React.FC = () => {
 
           <div className="text-center">
             <Link to="/signup">
-              <Button size="lg" variant="secondary" className="px-8">
+              <Button size="lg" variant="outline" className="px-8">
                 <Calendar className="mr-2 h-5 w-5" />
                 Browse All Events
               </Button>
@@ -805,53 +806,32 @@ const HomePage: React.FC = () => {
           </div>
 
           <div className="grid md:grid-cols-3 gap-8 mb-12">
-            {careerPaths.map((path, index) => {
-              const Icon = path.icon;
-              return (
-                <Card key={index} hover>
-                  <CardContent className="p-6">
-                    <div className="flex items-center space-x-3 mb-4">
-                      <div className={`p-3 rounded-lg ${path.bgColor} border border-gray-600`}>
-                        <Icon className={`h-6 w-6 ${path.color}`} />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-white">{path.title}</h3>
-                        <p className="text-sm text-gray-400">Demand: {path.demand}</p>
-                      </div>
-                    </div>
-
-                    <div className="mb-4">
-                      <p className="text-sm text-gray-300 mb-2">Key Skills:</p>
-                      <div className="flex flex-wrap gap-1">
-                        {path.skills.map((skill, skillIndex) => (
-                          <span
-                            key={skillIndex}
-                            className="px-2 py-1 bg-gray-700 text-gray-300 text-xs rounded border border-gray-600"
-                          >
-                            {skill}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between text-sm mb-4">
-                      <span className="text-gray-300">Avg. Salary:</span>
-                      <span className="font-semibold text-white">{path.salary}</span>
-                    </div>
-
-                    <Button variant="outline" className="w-full">
-                      <Target className="mr-2 h-4 w-4" />
-                      View Roadmap
-                    </Button>
-                  </CardContent>
-                </Card>
-              );
-            })}
+            {careerPaths.map((path, index) => (
+              <CareerPathCard
+                key={index}
+                id={path.title.toLowerCase().replace(/\s+/g, '-')}
+                title={path.title}
+                icon={path.icon}
+                color={path.color}
+                bgColor={path.bgColor}
+                borderColor="border-gray-600"
+                description={`Master ${path.title} with our comprehensive roadmap and join thousands of successful professionals.`}
+                skills={path.skills}
+                roles={[`Junior ${path.title}`, `Senior ${path.title}`, `${path.title} Lead`]}
+                averageSalary={path.salary}
+                demandLevel={path.demand}
+                category="Development"
+                                 salaryMin={parseInt(path.salary.split('-')[0].replace(/\D/g, '')) * 1000}
+                 salaryMax={parseInt(path.salary.split('-')[1].replace(/\D/g, '')) * 1000}
+                 onExplore={(id) => window.location.href = `/career-path`}
+                 isCompact={true}
+              />
+            ))}
           </div>
 
           <div className="text-center">
             <Link to="/signup">
-              <Button size="lg" variant="secondary" className="px-8">
+              <Button size="lg" variant="outline" className="px-8">
                 <TrendingUp className="mr-2 h-5 w-5" />
                 Explore All Paths
               </Button>

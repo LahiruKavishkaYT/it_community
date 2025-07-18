@@ -16,13 +16,18 @@ import {
   User,
   Code2,
   RefreshCw,
-  AlertTriangle
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
+  BarChart3,
+  Download
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -57,10 +62,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { projectAPI, Project } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ProjectDetailsModal } from "@/components/dashboard/projects/ProjectDetailsModal";
+import { BulkActionsBar } from "@/components/dashboard/projects/BulkActionsBar";
+import { ProjectAnalytics } from "@/components/dashboard/projects/ProjectAnalytics";
 
 const STATUS_COLORS = {
   published: "bg-green-600 text-white",
@@ -74,6 +83,8 @@ const Projects = () => {
   const [page, setPage] = useState(1);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
+  const [showAnalytics, setShowAnalytics] = useState(false);
   
   const { hasPermission } = useAuth();
   const queryClient = useQueryClient();
@@ -118,9 +129,203 @@ const Projects = () => {
     }
   });
 
+  // Approve project mutation
+  const approveProjectMutation = useMutation({
+    mutationFn: ({ projectId, notes }: { projectId: string; notes?: string }) => 
+      projectAPI.approveProject(projectId, notes),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      setSelectedProject(null);
+      toast({
+        title: "Success",
+        description: "Project has been approved successfully",
+      });
+    },
+    onError: (error: any) => {
+      console.error('Project approval error:', error);
+      
+      let errorMessage = 'Failed to approve project. Please try again.';
+      
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      toast({
+        title: "Approval Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Reject project mutation
+  const rejectProjectMutation = useMutation({
+    mutationFn: ({ projectId, reason }: { projectId: string; reason: string }) => 
+      projectAPI.rejectProject(projectId, reason),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      setSelectedProject(null);
+      toast({
+        title: "Success",
+        description: "Project has been rejected successfully",
+      });
+    },
+    onError: (error: any) => {
+      console.error('Project rejection error:', error);
+      
+      let errorMessage = 'Failed to reject project. Please try again.';
+      
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      toast({
+        title: "Rejection Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Bulk operations
+  const bulkApproveMutation = useMutation({
+    mutationFn: async (projectIds: string[]) => {
+      const promises = projectIds.map(id => projectAPI.approveProject(id));
+      await Promise.all(promises);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      setSelectedProjects([]);
+      toast({
+        title: "Success",
+        description: "Projects have been approved successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to approve some projects",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const bulkRejectMutation = useMutation({
+    mutationFn: async ({ projectIds, reason }: { projectIds: string[]; reason: string }) => {
+      const promises = projectIds.map(id => projectAPI.rejectProject(id, reason));
+      await Promise.all(promises);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      setSelectedProjects([]);
+      toast({
+        title: "Success",
+        description: "Projects have been rejected successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to reject some projects",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (projectIds: string[]) => {
+      const promises = projectIds.map(id => projectAPI.deleteProject(id));
+      await Promise.all(promises);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      setSelectedProjects([]);
+      toast({
+        title: "Success",
+        description: "Projects have been deleted successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete some projects",
+        variant: "destructive",
+      });
+    }
+  });
+
   const handleDeleteProject = async () => {
     if (!selectedProject) return;
     await deleteProjectMutation.mutateAsync(selectedProject.id);
+  };
+
+  const handleApproveProject = async (projectId: string, notes?: string) => {
+    await approveProjectMutation.mutateAsync({ projectId, notes });
+  };
+
+  const handleRejectProject = async (projectId: string, reason: string) => {
+    await rejectProjectMutation.mutateAsync({ projectId, reason });
+  };
+
+  const handleBulkApprove = async (projectIds: string[]) => {
+    await bulkApproveMutation.mutateAsync(projectIds);
+  };
+
+  const handleBulkReject = async (projectIds: string[]) => {
+    // For bulk reject, we'll use a simple reason
+    await bulkRejectMutation.mutateAsync({ projectIds, reason: "Bulk rejection by admin" });
+  };
+
+  const handleBulkDelete = async (projectIds: string[]) => {
+    await bulkDeleteMutation.mutateAsync(projectIds);
+  };
+
+  const handleExport = (projectIds: string[]) => {
+    const selectedProjectsData = projectsData?.projects?.filter(p => projectIds.includes(p.id)) || [];
+    const csvContent = [
+      ['Title', 'Author', 'Status', 'Technologies', 'Created', 'Feedback Count'],
+      ...selectedProjectsData.map(p => [
+        p.title,
+        p.author?.name || 'Unknown',
+        p.status,
+        (p.technologies || []).join(', '),
+        new Date(p.createdAt).toLocaleDateString(),
+        p.feedbackCount.toString()
+      ])
+    ].map(row => row.map(field => `"${field}"`).join(',')).join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `projects-export-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+
+    toast({
+      title: "Export Complete",
+      description: `${projectIds.length} projects exported successfully`,
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedProjects.length === projectsData?.projects?.length) {
+      setSelectedProjects([]);
+    } else {
+      setSelectedProjects(projectsData?.projects?.map(p => p.id) || []);
+    }
+  };
+
+  const handleSelectProject = (projectId: string) => {
+    setSelectedProjects(prev => 
+      prev.includes(projectId) 
+        ? prev.filter(id => id !== projectId)
+        : [...prev, projectId]
+    );
   };
 
   const formatDate = (dateString: string) => {
@@ -180,6 +385,15 @@ const Projects = () => {
           </div>
           <div className="flex items-center space-x-2">
             <Button 
+              onClick={() => setShowAnalytics(!showAnalytics)}
+              variant="outline" 
+              size="sm"
+              className="border-gray-600 text-gray-300 hover:bg-gray-700"
+            >
+              <BarChart3 className="h-4 w-4 mr-2" />
+              {showAnalytics ? 'Hide Analytics' : 'Show Analytics'}
+            </Button>
+            <Button 
               onClick={() => refetch()} 
               variant="outline" 
               size="sm"
@@ -191,6 +405,14 @@ const Projects = () => {
             </Button>
           </div>
         </div>
+
+        {/* Analytics Section */}
+        {showAnalytics && (
+          <ProjectAnalytics 
+            projects={projectsData?.projects || []} 
+            isLoading={isLoading}
+          />
+        )}
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -254,6 +476,19 @@ const Projects = () => {
           </Card>
         </div>
 
+        {/* Bulk Actions Bar */}
+        <BulkActionsBar
+          projects={projectsData?.projects || []}
+          selectedProjects={selectedProjects}
+          onSelectAll={handleSelectAll}
+          onSelectProject={handleSelectProject}
+          onBulkApprove={handleBulkApprove}
+          onBulkReject={handleBulkReject}
+          onBulkDelete={handleBulkDelete}
+          onExport={handleExport}
+          isLoading={bulkApproveMutation.isPending || bulkRejectMutation.isPending || bulkDeleteMutation.isPending}
+        />
+
         {/* Filters */}
         <Card className="bg-gray-800 border-gray-700">
           <CardContent className="p-4">
@@ -305,6 +540,18 @@ const Projects = () => {
               <Table>
                 <TableHeader>
                   <TableRow className="border-gray-700 hover:bg-gray-750">
+                    <TableHead className="text-gray-300 w-12">
+                      <Checkbox
+                        checked={selectedProjects.length === projectsData?.projects?.length}
+                        ref={(el) => {
+                          if (el) {
+                            el.indeterminate = selectedProjects.length > 0 && selectedProjects.length < (projectsData?.projects?.length || 0);
+                          }
+                        }}
+                        onCheckedChange={handleSelectAll}
+                        className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+                      />
+                    </TableHead>
                     <TableHead className="text-gray-300">Project</TableHead>
                     <TableHead className="text-gray-300">Author</TableHead>
                     <TableHead className="text-gray-300">Technologies</TableHead>
@@ -317,6 +564,13 @@ const Projects = () => {
                 <TableBody>
                   {(projectsData?.projects ?? []).map((project) => (
                     <TableRow key={project.id} className="border-gray-700 hover:bg-gray-750">
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedProjects.includes(project.id)}
+                          onCheckedChange={() => handleSelectProject(project.id)}
+                          className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+                        />
+                      </TableCell>
                       <TableCell>
                         <div>
                           <div className="font-medium text-white">{project.title}</div>
@@ -398,15 +652,30 @@ const Projects = () => {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="bg-gray-800 border-gray-700">
                             <DropdownMenuLabel className="text-gray-300">Actions</DropdownMenuLabel>
-                            <DropdownMenuItem className="text-gray-300 hover:bg-gray-700">
+                            <DropdownMenuItem 
+                              className="text-gray-300 hover:bg-gray-700"
+                              onClick={() => setSelectedProject(project)}
+                            >
                               <Eye className="mr-2 h-4 w-4" />
                               View Details
                             </DropdownMenuItem>
                             {project.status === 'flagged' && (
-                              <DropdownMenuItem className="text-gray-300 hover:bg-gray-700">
-                                <Flag className="mr-2 h-4 w-4" />
-                                Review Flag
-                              </DropdownMenuItem>
+                              <>
+                                <DropdownMenuItem 
+                                  className="text-green-400 hover:bg-gray-700"
+                                  onClick={() => handleApproveProject(project.id)}
+                                >
+                                  <CheckCircle className="mr-2 h-4 w-4" />
+                                  Approve
+                                </DropdownMenuItem>
+                                <DropdownMenuItem 
+                                  className="text-red-400 hover:bg-gray-700"
+                                  onClick={() => handleRejectProject(project.id, "Rejected by admin")}
+                                >
+                                  <XCircle className="mr-2 h-4 w-4" />
+                                  Reject
+                                </DropdownMenuItem>
+                              </>
                             )}
                             <DropdownMenuSeparator className="bg-gray-700" />
                             <DropdownMenuItem 
@@ -426,7 +695,7 @@ const Projects = () => {
                   ))}
                   {!projectsData?.projects?.length && (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-gray-400">
+                      <TableCell colSpan={8} className="text-center py-8 text-gray-400">
                         No projects available
                       </TableCell>
                     </TableRow>
@@ -448,6 +717,17 @@ const Projects = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* Project Details Modal */}
+        <ProjectDetailsModal
+          project={selectedProject}
+          isOpen={!!selectedProject}
+          onClose={() => setSelectedProject(null)}
+          onApprove={handleApproveProject}
+          onReject={handleRejectProject}
+          onDelete={handleDeleteProject}
+          isLoading={approveProjectMutation.isPending || rejectProjectMutation.isPending || deleteProjectMutation.isPending}
+        />
 
         {/* Delete Confirmation Dialog */}
         <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>

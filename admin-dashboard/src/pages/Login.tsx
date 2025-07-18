@@ -153,10 +153,10 @@ const Login = () => {
 
             <div className="mt-6 pt-4 border-t border-gray-700">
               <div className="text-center text-sm text-gray-400">
-                <p className="mb-2">Demo Credentials:</p>
+                <p className="mb-2 font-medium">Admin Credentials</p>
                 <div className="bg-gray-700 rounded-md p-3 text-left">
                   <p className="text-gray-300">Email: admin@itcommunity.com</p>
-                  <p className="text-gray-300">Password: admin123</p>
+                  <p className="text-gray-300">Password: SecureAdmin123!</p>
                 </div>
               </div>
             </div>

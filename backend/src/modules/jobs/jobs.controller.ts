@@ -27,6 +27,7 @@ import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { UserRole, JobType, ExperienceLevel, ApplicationStatus } from '../../../generated/prisma';
 import { UploadService } from '../../common/upload/upload.service';
+import { OptionalJwtAuthGuard } from '../../auth/guards/optional-jwt-auth.guard';
 
 @Controller('jobs')
 export class JobsController {
@@ -35,18 +36,10 @@ export class JobsController {
     private readonly uploadService: UploadService,
   ) {}
 
-  @Get('debug/user-role')
-  @UseGuards(JwtAuthGuard)
-  async debugUserRole(@Request() req: any) {
-    return {
-      user: req.user,
-      canCreateJobs: req.user?.role === 'COMPANY' || req.user?.role === 'PROFESSIONAL',
-      allowedRoles: ['COMPANY', 'PROFESSIONAL'],
-      timestamp: new Date().toISOString()
-    };
-  }
+  // Debug endpoint removed for security - sensitive user data exposure risk
 
   @Get()
+  @UseGuards(OptionalJwtAuthGuard)
   async findAll(
     @Query('type') type?: JobType,
     @Query('remote') remote?: string,
@@ -57,6 +50,7 @@ export class JobsController {
     @Query('salaryMax') salaryMax?: string,
     @Query('featured') featured?: string,
     @Query('search') search?: string,
+    @Request() req?: any,
   ) {
     const filters: any = {};
     
@@ -70,7 +64,9 @@ export class JobsController {
     if (featured !== undefined) filters.featured = featured === 'true';
     if (search) filters.search = search;
 
-    return this.jobsService.findAll(filters);
+    // Include user context if authenticated
+    const userId = req?.user?.id;
+    return this.jobsService.findAll(filters, userId);
   }
 
   @Get('recommended/:userId')
@@ -107,6 +103,12 @@ export class JobsController {
     return this.jobsService.getUserApplications(userId);
   }
 
+  @Get('applications/:applicationId')
+  @UseGuards(JwtAuthGuard)
+  async getApplicationDetails(@Param('applicationId') applicationId: string, @Request() req: any) {
+    return this.jobsService.getApplicationDetails(applicationId, req.user.id);
+  }
+
   @Get('user/:userId/bookmarks')
   @UseGuards(JwtAuthGuard)
   async getUserBookmarks(@Param('userId') userId: string, @Request() req: any) {
@@ -138,14 +140,15 @@ export class JobsController {
     @Body() createJobDto: CreateJobDto,
     @Request() req: any,
   ) {
-    // Debug: Log user info for troubleshooting
-    console.log('Job creation request from user:', {
-      id: req.user?.id,
-      role: req.user?.role,
-      email: req.user?.email,
-      name: req.user?.name
-    });
-    console.log('Job data received:', createJobDto);
+    // Secure logging - only log business events without sensitive data
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Job creation request:', {
+        userId: req.user?.id?.substring(0, 8) + '...',
+        role: req.user?.role,
+        jobTitle: createJobDto.title,
+        timestamp: new Date().toISOString()
+      });
+    }
     
     return this.jobsService.create(createJobDto, req.user.id);
   }

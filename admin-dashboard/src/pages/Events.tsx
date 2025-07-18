@@ -20,7 +20,20 @@ import {
   CheckCircle,
   XCircle,
   Pause,
-  Play
+  Play,
+  Download,
+  BarChart3,
+  Send,
+  CheckSquare,
+  Square,
+  Filter as FilterIcon,
+  ChevronDown,
+  ChevronUp,
+  Settings,
+  UserCheck,
+  UserX,
+  Mail,
+  FileText
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -53,6 +66,27 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 import { eventAPI, Event } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
@@ -89,6 +123,12 @@ const Events = () => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [selectedEvents, setSelectedEvents] = useState<string[]>([]);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [isApprovalDialogOpen, setIsApprovalDialogOpen] = useState(false);
+  const [approvalAction, setApprovalAction] = useState<'approve' | 'reject' | null>(null);
+  const [approvalNotes, setApprovalNotes] = useState("");
+  const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
   
   const { hasPermission } = useAuth();
   const queryClient = useQueryClient();
@@ -113,6 +153,14 @@ const Events = () => {
     staleTime: 5 * 60 * 1000,
   });
 
+  // Fetch event analytics
+  const { data: analyticsData } = useQuery({
+    queryKey: ['event-analytics'],
+    queryFn: () => eventAPI.getEventAnalytics(),
+    enabled: hasPermission && hasPermission('content.read'),
+    staleTime: 10 * 60 * 1000,
+  });
+
   // Delete event mutation
   const deleteEventMutation = useMutation({
     mutationFn: (eventId: string) => eventAPI.deleteEvent(eventId),
@@ -134,9 +182,131 @@ const Events = () => {
     }
   });
 
+  // Approve event mutation
+  const approveEventMutation = useMutation({
+    mutationFn: ({ eventId, notes }: { eventId: string; notes?: string }) => 
+      eventAPI.approveEvent(eventId, notes),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+      setIsApprovalDialogOpen(false);
+      setApprovalNotes("");
+      setApprovalAction(null);
+      toast({
+        title: "Success",
+        description: "Event has been approved successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to approve event",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Reject event mutation
+  const rejectEventMutation = useMutation({
+    mutationFn: ({ eventId, reason }: { eventId: string; reason: string }) => 
+      eventAPI.rejectEvent(eventId, reason),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+      setIsApprovalDialogOpen(false);
+      setApprovalNotes("");
+      setApprovalAction(null);
+      toast({
+        title: "Success",
+        description: "Event has been rejected successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to reject event",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Bulk operations mutation
+  const bulkOperationsMutation = useMutation({
+    mutationFn: ({ action, eventIds }: { action: string; eventIds: string[] }) => {
+      switch (action) {
+        case 'delete':
+          return Promise.all(eventIds.map(id => eventAPI.deleteEvent(id)));
+        case 'approve':
+          return Promise.all(eventIds.map(id => eventAPI.approveEvent(id)));
+        case 'reject':
+          return Promise.all(eventIds.map(id => eventAPI.rejectEvent(id, 'Bulk rejection')));
+        default:
+          throw new Error('Invalid action');
+      }
+    },
+    onSuccess: (_, { action }) => {
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+      setSelectedEvents([]);
+      toast({
+        title: "Success",
+        description: `Bulk ${action} completed successfully`,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to perform bulk operation",
+        variant: "destructive",
+      });
+    }
+  });
+
   const handleDeleteEvent = async () => {
     if (!selectedEvent) return;
     await deleteEventMutation.mutateAsync(selectedEvent.id);
+  };
+
+  const handleApprovalAction = async () => {
+    if (!selectedEvent || !approvalAction) return;
+    
+    if (approvalAction === 'approve') {
+      await approveEventMutation.mutateAsync({ 
+        eventId: selectedEvent.id, 
+        notes: approvalNotes 
+      });
+    } else {
+      await rejectEventMutation.mutateAsync({ 
+        eventId: selectedEvent.id, 
+        reason: approvalNotes 
+      });
+    }
+  };
+
+  const handleBulkAction = async (action: string) => {
+    if (selectedEvents.length === 0) {
+      toast({
+        title: "Warning",
+        description: "Please select events to perform bulk operation",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    await bulkOperationsMutation.mutateAsync({ action, eventIds: selectedEvents });
+  };
+
+  const handleSelectEvent = (eventId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedEvents(prev => [...prev, eventId]);
+    } else {
+      setSelectedEvents(prev => prev.filter(id => id !== eventId));
+    }
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedEvents(eventsData?.events.map(e => e.id) || []);
+    } else {
+      setSelectedEvents([]);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -198,12 +368,8 @@ const Events = () => {
               <div className="text-center">
                 <AlertTriangle className="h-12 w-12 text-red-400 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-red-300 mb-2">Failed to Load Events</h3>
-                <p className="text-red-400 mb-4">There was an error loading the events data.</p>
-                <Button 
-                  onClick={() => refetch()} 
-                  variant="outline" 
-                  className="border-red-500/50 text-red-300 hover:bg-red-500/10"
-                >
+                <p className="text-red-200 mb-4">There was an error loading the events data.</p>
+                <Button onClick={() => refetch()} variant="outline">
                   <RefreshCw className="h-4 w-4 mr-2" />
                   Try Again
                 </Button>
@@ -219,162 +385,231 @@ const Events = () => {
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-white">Event Management</h1>
-            <p className="text-gray-400 mt-1">Manage community events and activities</p>
+            <p className="text-gray-400 mt-1">Manage and moderate community events</p>
           </div>
           <div className="flex items-center space-x-2">
-            <Button 
-              onClick={() => refetch()} 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="sm"
-              disabled={isLoading}
-              className="border-gray-600 text-gray-300 hover:bg-gray-700"
+              onClick={() => setIsAnalyticsOpen(true)}
             >
-              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              Refresh
+              <BarChart3 className="h-4 w-4 mr-2" />
+              Analytics
             </Button>
-            <Button 
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-              onClick={() => setIsCreateModalOpen(true)}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
             >
+              <FilterIcon className="h-4 w-4 mr-2" />
+              Advanced Filters
+              {showAdvancedFilters ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />}
+            </Button>
+            <Button onClick={() => setIsCreateModalOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Create Event
             </Button>
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="bg-gradient-to-br from-gray-800 to-blue-900/20 border-blue-500/20">
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
-                <Calendar className="h-5 w-5 text-blue-400" />
-                <span className="text-sm text-gray-400">Total Events</span>
-              </div>
-              <div className="mt-2">
-                <span className="text-2xl font-bold text-white">{eventsData?.total || 0}</span>
-                <span className="text-xs text-green-400 ml-2 flex items-center">
-                  <TrendingUp className="h-3 w-3 mr-1" />
-                  +12%
-                </span>
-              </div>
-            </CardContent>
-          </Card>
+        {/* Analytics Summary Cards */}
+        {analyticsData && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card className="bg-blue-900/20 border-blue-500/20">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-blue-300 text-sm font-medium">Total Events</p>
+                    <p className="text-2xl font-bold text-white">{analyticsData.overview.totalEvents}</p>
+                  </div>
+                  <Calendar className="h-8 w-8 text-blue-400" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-green-900/20 border-green-500/20">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-green-300 text-sm font-medium">Published</p>
+                    <p className="text-2xl font-bold text-white">{analyticsData.overview.publishedEvents}</p>
+                  </div>
+                  <CheckCircle className="h-8 w-8 text-green-400" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-orange-900/20 border-orange-500/20">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-orange-300 text-sm font-medium">Pending</p>
+                    <p className="text-2xl font-bold text-white">{analyticsData.overview.draftEvents}</p>
+                  </div>
+                  <Pause className="h-8 w-8 text-orange-400" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-purple-900/20 border-purple-500/20">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-purple-300 text-sm font-medium">Total Attendees</p>
+                    <p className="text-2xl font-bold text-white">{analyticsData.overview.totalAttendees}</p>
+                  </div>
+                  <Users className="h-8 w-8 text-purple-400" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
-          <Card className="bg-gradient-to-br from-gray-800 to-green-900/20 border-green-500/20">
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
-                <Users className="h-5 w-5 text-green-400" />
-                <span className="text-sm text-gray-400">Active Events</span>
-              </div>
-              <div className="mt-2">
-                <span className="text-2xl font-bold text-white">
-                  {eventsData?.events?.filter(e => e.status === 'PUBLISHED').length || 0}
-                </span>
-                <span className="text-xs text-green-400 ml-2 flex items-center">
-                  <TrendingUp className="h-3 w-3 mr-1" />
-                  +8%
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-gray-800 to-purple-900/20 border-purple-500/20">
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
-                <Clock className="h-5 w-5 text-purple-400" />
-                <span className="text-sm text-gray-400">Upcoming</span>
-              </div>
-              <div className="mt-2">
-                <span className="text-2xl font-bold text-white">
-                  {eventsData?.events?.filter(e => 
-                    e.status === 'PUBLISHED' && new Date(e.date) > new Date()
-                  ).length || 0}
-                </span>
-                <span className="text-xs text-blue-400 ml-2 flex items-center">
-                  <TrendingUp className="h-3 w-3 mr-1" />
-                  +15%
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-gray-800 to-orange-900/20 border-orange-500/20">
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
-                <CheckCircle className="h-5 w-5 text-orange-400" />
-                <span className="text-sm text-gray-400">Completed</span>
-              </div>
-              <div className="mt-2">
-                <span className="text-2xl font-bold text-white">
-                  {eventsData?.events?.filter(e => e.status === 'COMPLETED').length || 0}
-                </span>
-                <span className="text-xs text-green-400 ml-2 flex items-center">
-                  <TrendingUp className="h-3 w-3 mr-1" />
-                  +5%
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Filters */}
-        <Card className="bg-gray-800/50 border-gray-700/50">
+        {/* Filters and Search */}
+        <Card className="bg-gray-900/50 border-gray-700">
           <CardContent className="p-4">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Search events, organizers, or locations..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 bg-gray-700/50 border-gray-600 text-white placeholder-gray-400"
-                />
+            <div className="flex flex-col lg:flex-row gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <Input
+                    placeholder="Search events..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 bg-gray-800 border-gray-600 text-white"
+                  />
+                </div>
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full sm:w-48 bg-gray-700/50 border-gray-600 text-white">
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent className="bg-gray-800 border-gray-700">
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="DRAFT">Draft</SelectItem>
-                  <SelectItem value="PUBLISHED">Published</SelectItem>
-                  <SelectItem value="CANCELLED">Cancelled</SelectItem>
-                  <SelectItem value="COMPLETED">Completed</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="w-full sm:w-48 bg-gray-700/50 border-gray-600 text-white">
-                  <SelectValue placeholder="Filter by type" />
-                </SelectTrigger>
-                <SelectContent className="bg-gray-800 border-gray-700">
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="WORKSHOP">Workshop</SelectItem>
-                  <SelectItem value="NETWORKING">Networking</SelectItem>
-                  <SelectItem value="HACKATHON">Hackathon</SelectItem>
-                  <SelectItem value="SEMINAR">Seminar</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex gap-2">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-32 bg-gray-800 border-gray-600 text-white">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="DRAFT">Draft</SelectItem>
+                    <SelectItem value="PUBLISHED">Published</SelectItem>
+                    <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                    <SelectItem value="COMPLETED">Completed</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                  <SelectTrigger className="w-32 bg-gray-800 border-gray-600 text-white">
+                    <SelectValue placeholder="Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="WORKSHOP">Workshop</SelectItem>
+                    <SelectItem value="NETWORKING">Networking</SelectItem>
+                    <SelectItem value="HACKATHON">Hackathon</SelectItem>
+                    <SelectItem value="SEMINAR">Seminar</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+
+            {/* Advanced Filters */}
+            <Collapsible open={showAdvancedFilters}>
+              <CollapsibleContent className="mt-4 pt-4 border-t border-gray-700">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-300 mb-2 block">Date Range</label>
+                    <div className="flex gap-2">
+                      <Input
+                        type="date"
+                        placeholder="From"
+                        className="bg-gray-800 border-gray-600 text-white"
+                      />
+                      <Input
+                        type="date"
+                        placeholder="To"
+                        className="bg-gray-800 border-gray-600 text-white"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-300 mb-2 block">Location</label>
+                    <Input
+                      placeholder="Filter by location"
+                      className="bg-gray-800 border-gray-600 text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-300 mb-2 block">Organizer</label>
+                    <Input
+                      placeholder="Filter by organizer"
+                      className="bg-gray-800 border-gray-600 text-white"
+                    />
+                  </div>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
           </CardContent>
         </Card>
+
+        {/* Bulk Actions */}
+        {selectedEvents.length > 0 && (
+          <Card className="bg-blue-900/20 border-blue-500/20">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <span className="text-blue-300">
+                    {selectedEvents.length} event(s) selected
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedEvents([])}
+                  >
+                    Clear Selection
+                  </Button>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleBulkAction('approve')}
+                    disabled={bulkOperationsMutation.isPending}
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Approve All
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleBulkAction('reject')}
+                    disabled={bulkOperationsMutation.isPending}
+                  >
+                    <XCircle className="h-4 w-4 mr-2" />
+                    Reject All
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleBulkAction('delete')}
+                    disabled={bulkOperationsMutation.isPending}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete All
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Events Grid */}
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {Array.from({ length: 6 }).map((_, i) => (
-              <Card key={i} className="bg-gray-800/50 border-gray-700/50">
+              <Card key={i} className="bg-gray-900/50 border-gray-700">
                 <CardContent className="p-6">
-                  <div className="space-y-4">
-                    <Skeleton className="h-6 w-3/4 bg-gray-700" />
-                    <Skeleton className="h-4 w-full bg-gray-700" />
-                    <Skeleton className="h-4 w-2/3 bg-gray-700" />
-                    <div className="flex space-x-2">
-                      <Skeleton className="h-6 w-16 bg-gray-700" />
-                      <Skeleton className="h-6 w-20 bg-gray-700" />
-                    </div>
+                  <Skeleton className="h-6 w-3/4 mb-4" />
+                  <Skeleton className="h-4 w-full mb-2" />
+                  <Skeleton className="h-4 w-2/3 mb-4" />
+                  <div className="flex justify-between items-center">
+                    <Skeleton className="h-8 w-20" />
+                    <Skeleton className="h-8 w-8" />
                   </div>
                 </CardContent>
               </Card>
@@ -382,98 +617,138 @@ const Events = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {eventsData?.events?.map((event) => {
-              const StatusIcon = EVENT_STATUS_ICONS[event.status];
-              const attendancePercentage = getAttendancePercentage(event.currentAttendees, event.maxAttendees);
+            {eventsData?.events.map((event) => {
+              const StatusIcon = EVENT_STATUS_ICONS[event.status as keyof typeof EVENT_STATUS_ICONS];
+              const isSelected = selectedEvents.includes(event.id);
               
               return (
-                <Card key={event.id} className="bg-gray-800/50 border-gray-700/50 hover:border-gray-600/50 transition-all duration-200 hover:shadow-lg hover:shadow-gray-900/20">
-                  <CardHeader className="pb-3">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <CardTitle className="text-lg text-white line-clamp-2">{event.title}</CardTitle>
-                        <div className="flex items-center space-x-2 mt-2">
-                          <Badge className={EVENT_TYPE_COLORS[event.type]}>
-                            {event.type}
-                          </Badge>
-                          <Badge className={EVENT_STATUS_COLORS[event.status]}>
-                            <StatusIcon className="h-3 w-3 mr-1" />
-                            {event.status}
-                          </Badge>
-                        </div>
+                <Card key={event.id} className="bg-gray-900/50 border-gray-700 hover:border-gray-600 transition-colors">
+                  <CardContent className="p-6">
+                    {/* Event Header */}
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={(checked) => handleSelectEvent(event.id, checked as boolean)}
+                        />
+                        <Badge className={EVENT_TYPE_COLORS[event.type as keyof typeof EVENT_TYPE_COLORS]}>
+                          {event.type}
+                        </Badge>
                       </div>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-400 hover:text-white">
+                          <Button variant="ghost" size="sm">
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent className="bg-gray-800 border-gray-700">
-                          <DropdownMenuLabel className="text-gray-300">Actions</DropdownMenuLabel>
-                          <DropdownMenuSeparator className="bg-gray-700" />
-                          <DropdownMenuItem className="text-gray-300 hover:bg-gray-700">
+                        <DropdownMenuContent align="end" className="bg-gray-800 border-gray-600">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => setEditingEvent(event)}>
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem>
                             <Eye className="h-4 w-4 mr-2" />
                             View Details
                           </DropdownMenuItem>
+                          {event.status === 'DRAFT' && (
+                            <>
+                              <DropdownMenuItem 
+                                onClick={() => {
+                                  setSelectedEvent(event);
+                                  setApprovalAction('approve');
+                                  setIsApprovalDialogOpen(true);
+                                }}
+                              >
+                                <CheckCircle className="h-4 w-4 mr-2" />
+                                Approve
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={() => {
+                                  setSelectedEvent(event);
+                                  setApprovalAction('reject');
+                                  setIsApprovalDialogOpen(true);
+                                }}
+                              >
+                                <XCircle className="h-4 w-4 mr-2" />
+                                Reject
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                          <DropdownMenuSeparator />
                           <DropdownMenuItem 
-                            className="text-gray-300 hover:bg-gray-700"
-                            onClick={() => {
-                              setEditingEvent(event);
-                              setIsCreateModalOpen(true);
-                            }}
-                          >
-                            <Edit className="h-4 w-4 mr-2" />
-                            Edit Event
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            className="text-red-400 hover:bg-red-500/10"
                             onClick={() => {
                               setSelectedEvent(event);
                               setIsDeleteDialogOpen(true);
                             }}
+                            className="text-red-400"
                           >
                             <Trash2 className="h-4 w-4 mr-2" />
-                            Delete Event
+                            Delete
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <p className="text-gray-400 text-sm line-clamp-3">{event.description}</p>
-                    
-                    <div className="space-y-2">
-                      <div className="flex items-center space-x-2 text-sm">
-                        <Calendar className="h-4 w-4 text-gray-500" />
-                        <span className="text-gray-300">{formatDate(event.date)}</span>
-                        <span className="text-gray-500">({formatRelativeDate(event.date)})</span>
+
+                    {/* Event Title and Description */}
+                    <h3 className="text-lg font-semibold text-white mb-2 line-clamp-2">
+                      {event.title}
+                    </h3>
+                    <p className="text-gray-300 text-sm mb-4 line-clamp-3">
+                      {event.description}
+                    </p>
+
+                    {/* Event Details */}
+                    <div className="space-y-2 text-sm text-gray-300 mb-4">
+                      <div className="flex items-center space-x-2">
+                        <Calendar className="h-4 w-4 text-gray-400" />
+                        <span>{formatDate(event.date)}</span>
                       </div>
-                      
-                      <div className="flex items-center space-x-2 text-sm">
-                        <MapPin className="h-4 w-4 text-gray-500" />
-                        <span className="text-gray-300 line-clamp-1">{event.location}</span>
+                      <div className="flex items-center space-x-2">
+                        <MapPin className="h-4 w-4 text-gray-400" />
+                        <span>{event.location}</span>
                       </div>
-                      
-                      <div className="flex items-center space-x-2 text-sm">
-                        <Users className="h-4 w-4 text-gray-500" />
-                        <span className="text-gray-300">
-                          {event.currentAttendees}/{event.maxAttendees || '∞'} attendees
+                      <div className="flex items-center space-x-2">
+                        <Users className="h-4 w-4 text-gray-400" />
+                        <span>
+                          {event.currentAttendees || 0}
+                          {event.maxAttendees && ` / ${event.maxAttendees}`}
                         </span>
-                        {event.maxAttendees && (
-                          <span className={`text-xs ${getAttendanceColor(attendancePercentage)}`}>
-                            ({attendancePercentage}%)
-                          </span>
-                        )}
                       </div>
                     </div>
-                    
-                    <div className="flex items-center space-x-2 pt-2">
+
+                    {/* Organizer */}
+                    <div className="flex items-center space-x-2 mb-4">
                       <Avatar className="h-6 w-6">
-                        <AvatarFallback className="text-xs bg-gray-700 text-gray-300">
-                          {getInitials(event.organizer.name)}
+                        <AvatarFallback className="text-xs">
+                          {getInitials(event.organizer?.name || 'Unknown')}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="text-xs text-gray-400">{event.organizer.name}</span>
+                      <span className="text-sm text-gray-300">
+                        {event.organizer?.name || 'Unknown Organizer'}
+                      </span>
+                    </div>
+
+                    {/* Status and Actions */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <StatusIcon className="h-4 w-4 text-gray-400" />
+                        <Badge className={EVENT_STATUS_COLORS[event.status as keyof typeof EVENT_STATUS_COLORS]}>
+                          {event.status}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <Button variant="ghost" size="sm">
+                          <UserCheck className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm">
+                          <Mail className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm">
+                          <FileText className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -482,66 +757,217 @@ const Events = () => {
           </div>
         )}
 
-        {/* Empty State */}
-        {!isLoading && eventsData?.events?.length === 0 && (
-          <Card className="bg-gray-800/50 border-gray-700/50">
-            <CardContent className="flex items-center justify-center p-12">
-              <div className="text-center">
-                <Calendar className="h-12 w-12 text-gray-500 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-300 mb-2">No Events Found</h3>
-                <p className="text-gray-400 mb-4">
-                  {searchTerm || statusFilter !== 'all' || typeFilter !== 'all' 
-                    ? 'Try adjusting your filters or search terms.'
-                    : 'Get started by creating your first event.'
-                  }
-                </p>
-                <Button 
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                  onClick={() => setIsCreateModalOpen(true)}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Event
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Delete Confirmation Dialog */}
-        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-          <AlertDialogContent className="bg-gray-800 border-gray-700">
-            <AlertDialogHeader>
-              <AlertDialogTitle className="text-white">Delete Event</AlertDialogTitle>
-              <AlertDialogDescription className="text-gray-400">
-                Are you sure you want to delete "{selectedEvent?.title}"? This action cannot be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel className="border-gray-600 text-gray-300 hover:bg-gray-700">
-                Cancel
-              </AlertDialogCancel>
-              <AlertDialogAction 
-                onClick={handleDeleteEvent}
-                disabled={deleteEventMutation.isPending}
-                className="bg-red-600 hover:bg-red-700"
+        {/* Pagination */}
+        {eventsData && eventsData.totalPages > 1 && (
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-400">
+              Showing {((page - 1) * 12) + 1} to {Math.min(page * 12, eventsData.total)} of {eventsData.total} events
+            </p>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(page - 1)}
+                disabled={page === 1}
               >
-                {deleteEventMutation.isPending ? 'Deleting...' : 'Delete'}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
-        {/* Event Creation/Edit Modal */}
-        <EventCreationModal
-          isOpen={isCreateModalOpen}
-          onClose={() => {
-            setIsCreateModalOpen(false);
-            setEditingEvent(null);
-          }}
-          event={editingEvent}
-          mode={editingEvent ? 'edit' : 'create'}
-        />
+                Previous
+              </Button>
+              <span className="text-sm text-gray-300">
+                Page {page} of {eventsData.totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(page + 1)}
+                disabled={page === eventsData.totalPages}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Event Creation Modal */}
+      <EventCreationModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        event={editingEvent}
+        mode={editingEvent ? 'edit' : 'create'}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent className="bg-gray-800 border-gray-600">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">Delete Event</AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-300">
+              Are you sure you want to delete "{selectedEvent?.title}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-gray-700 border-gray-600 text-white hover:bg-gray-600">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteEvent}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={deleteEventMutation.isPending}
+            >
+              {deleteEventMutation.isPending ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Approval Dialog */}
+      <AlertDialog open={isApprovalDialogOpen} onOpenChange={setIsApprovalDialogOpen}>
+        <AlertDialogContent className="bg-gray-800 border-gray-600">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">
+              {approvalAction === 'approve' ? 'Approve Event' : 'Reject Event'}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-300">
+              {approvalAction === 'approve' 
+                ? `Are you sure you want to approve "${selectedEvent?.title}"?`
+                : `Are you sure you want to reject "${selectedEvent?.title}"?`
+              }
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <label className="text-sm font-medium text-gray-300 mb-2 block">
+              {approvalAction === 'approve' ? 'Notes (optional)' : 'Reason (required)'}
+            </label>
+            <Textarea
+              value={approvalNotes}
+              onChange={(e) => setApprovalNotes(e.target.value)}
+              placeholder={approvalAction === 'approve' ? 'Add approval notes...' : 'Enter rejection reason...'}
+              className="bg-gray-700 border-gray-600 text-white"
+              rows={3}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-gray-700 border-gray-600 text-white hover:bg-gray-600">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleApprovalAction}
+              className={approvalAction === 'approve' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}
+              disabled={
+                (approvalAction === 'reject' && !approvalNotes.trim()) ||
+                approveEventMutation.isPending ||
+                rejectEventMutation.isPending
+              }
+            >
+              {approveEventMutation.isPending || rejectEventMutation.isPending 
+                ? (approvalAction === 'approve' ? 'Approving...' : 'Rejecting...')
+                : (approvalAction === 'approve' ? 'Approve' : 'Reject')
+              }
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Analytics Dialog */}
+      <Dialog open={isAnalyticsOpen} onOpenChange={setIsAnalyticsOpen}>
+        <DialogContent className="bg-gray-800 border-gray-600 max-w-4xl">
+          <DialogHeader>
+            <DialogTitle className="text-white">Event Analytics</DialogTitle>
+            <DialogDescription className="text-gray-300">
+              Detailed analytics and insights about events
+            </DialogDescription>
+          </DialogHeader>
+          {analyticsData && (
+            <Tabs defaultValue="overview" className="w-full">
+              <TabsList className="grid w-full grid-cols-3 bg-gray-700">
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="trends">Trends</TabsTrigger>
+                <TabsTrigger value="details">Details</TabsTrigger>
+              </TabsList>
+              <TabsContent value="overview" className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <Card className="bg-gray-700 border-gray-600">
+                    <CardHeader>
+                      <CardTitle className="text-white text-lg">Events by Type</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {analyticsData.eventsByType?.map((item) => (
+                        <div key={item.type} className="flex justify-between items-center py-2">
+                          <span className="text-gray-300">{item.type}</span>
+                          <Badge>{item.count}</Badge>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                  <Card className="bg-gray-700 border-gray-600">
+                    <CardHeader>
+                      <CardTitle className="text-white text-lg">Events by Status</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {analyticsData.eventsByStatus?.map((item) => (
+                        <div key={item.status} className="flex justify-between items-center py-2">
+                          <span className="text-gray-300">{item.status}</span>
+                          <Badge>{item.count}</Badge>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+              <TabsContent value="trends" className="space-y-4">
+                <Card className="bg-gray-700 border-gray-600">
+                  <CardHeader>
+                    <CardTitle className="text-white text-lg">Recent Events</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {analyticsData.recentEvents?.map((event) => (
+                      <div key={event.id} className="flex justify-between items-center py-2 border-b border-gray-600 last:border-b-0">
+                        <div>
+                          <p className="text-white font-medium">{event.title}</p>
+                          <p className="text-gray-300 text-sm">{event.organizer}</p>
+                        </div>
+                        <div className="text-right">
+                          <Badge className={EVENT_STATUS_COLORS[event.status as keyof typeof EVENT_STATUS_COLORS]}>
+                            {event.status}
+                          </Badge>
+                          <p className="text-gray-300 text-sm mt-1">{event.attendeeCount} attendees</p>
+                        </div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              <TabsContent value="details" className="space-y-4">
+                <Card className="bg-gray-700 border-gray-600">
+                  <CardHeader>
+                    <CardTitle className="text-white text-lg">Summary Statistics</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-gray-300 text-sm">Total Events</p>
+                        <p className="text-2xl font-bold text-white">{analyticsData.overview.totalEvents}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-300 text-sm">Total Attendees</p>
+                        <p className="text-2xl font-bold text-white">{analyticsData.overview.totalAttendees}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-300 text-sm">Average Attendees</p>
+                        <p className="text-2xl font-bold text-white">{analyticsData.overview.averageAttendeesPerEvent}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-300 text-sm">Unique Organizers</p>
+                        <p className="text-2xl font-bold text-white">{analyticsData.overview.uniqueOrganizers}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          )}
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };

@@ -5,6 +5,7 @@ import {
   FolderOpen,
   Calendar,
   Briefcase,
+  MessageSquare,
   TrendingUp,
   Settings,
   Shield,
@@ -41,6 +42,7 @@ const mainNavItems = [
   { title: "Projects", url: "/projects", icon: FolderOpen, description: "Student & professional projects" },
   { title: "Events", url: "/events", icon: Calendar, description: "Workshops & networking events" },
   { title: "Jobs & Internships", url: "/jobs", icon: Briefcase, description: "Career opportunities" },
+  { title: "Suggestions", url: "/suggestions", icon: MessageSquare, description: "Community feedback & suggestions" },
   { title: "Analytics", url: "/analytics", icon: BarChart3, description: "Platform insights" },
 ];
 

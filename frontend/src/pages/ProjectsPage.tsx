@@ -375,7 +375,7 @@ const ProjectsPage: React.FC = () => {
               </p>
             </div>
             
-            {/* Create Project Button - Show for authenticated users or trigger modal for guests */}
+            {/* Create Project Buttons - Show for authenticated users or trigger modal for guests */}
             {!user ? (
               <Button 
                 onClick={() => requireAuth('share your project', 'Projects')} 
@@ -385,17 +385,35 @@ const ProjectsPage: React.FC = () => {
                 <Plus className="h-4 w-4" />
                 <span>Share Your Project</span>
               </Button>
-            ) : (user.role === 'STUDENT' || user.role === 'PROFESSIONAL') && (
-              <Button 
-                onClick={() => navigate('/projects/new')} 
-                className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 transition-colors"
-                size="lg"
-              >
-                <Plus className="h-4 w-4" />
-                <span>
-                  {user.role === 'STUDENT' ? 'Upload Student Project' : 'Upload Learning Project'}
-                </span>
-              </Button>
+            ) : (user.role === 'STUDENT' || user.role === 'PROFESSIONAL' || user.role === 'COMPANY') && (
+              <div className="flex flex-col sm:flex-row gap-3">
+                {/* Student Project Upload */}
+                {(user.role === 'STUDENT' || user.role === 'PROFESSIONAL') && (
+                  <Button 
+                    onClick={() => navigate('/projects/new')} 
+                    className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 transition-colors"
+                    size="lg"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span>
+                      {user.role === 'STUDENT' ? 'Upload Student Project' : 'Share Project'}
+                    </span>
+                  </Button>
+                )}
+                
+                {/* Learning Project Upload for Professionals & Companies */}
+                {(user.role === 'PROFESSIONAL' || user.role === 'COMPANY') && (
+                  <Button 
+                    onClick={() => navigate('/projects/learning/new')} 
+                    variant="outline"
+                    className="flex items-center space-x-2 border-green-500 text-green-400 hover:bg-green-500/10 transition-colors"
+                    size="lg"
+                  >
+                    <BookOpen className="h-4 w-4" />
+                    <span>Create Learning Project</span>
+                  </Button>
+                )}
+              </div>
             )}
           </div>
         </div>

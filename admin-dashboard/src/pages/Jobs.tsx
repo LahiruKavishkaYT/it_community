@@ -24,7 +24,21 @@ import {
   Briefcase,
   GraduationCap,
   Clock,
-  FileText
+  FileText,
+  BarChart3,
+  Download,
+  Archive,
+  Settings,
+  UserCheck,
+  UserX,
+  Ban,
+  CheckSquare,
+  Square,
+  ChevronDown,
+  ChevronUp,
+  Filter as FilterIcon,
+  SortAsc,
+  SortDesc
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -57,11 +71,24 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { jobAPI, Job } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { JobCreationModal } from "@/components/dashboard/jobs/JobCreationModal";
+import { JobDetailsModal } from "@/components/dashboard/jobs/JobDetailsModal";
+import { JobAnalytics } from "@/components/dashboard/jobs/JobAnalytics";
 
 const JOB_TYPE_COLORS = {
   FULL_TIME: "bg-blue-600 text-white",
@@ -74,12 +101,14 @@ const JOB_STATUS_COLORS = {
   DRAFT: "bg-gray-600 text-white",
   PUBLISHED: "bg-green-600 text-white",
   CLOSED: "bg-red-600 text-white",
+  ARCHIVED: "bg-yellow-600 text-white",
 };
 
 const JOB_STATUS_ICONS = {
   DRAFT: Pause,
   PUBLISHED: Play,
   CLOSED: XCircle,
+  ARCHIVED: Archive,
 };
 
 const Jobs = () => {
@@ -90,7 +119,16 @@ const Jobs = () => {
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
   const [editingJob, setEditingJob] = useState<Job | null>(null);
+  const [selectedJobs, setSelectedJobs] = useState<string[]>([]);
+  const [isBulkActionsOpen, setIsBulkActionsOpen] = useState(false);
+  const [bulkAction, setBulkAction] = useState<string>("");
+  const [bulkNotes, setBulkNotes] = useState("");
+  const [sortBy, setSortBy] = useState("postedAt");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [activeTab, setActiveTab] = useState("jobs");
   
   const { hasPermission } = useAuth();
   const queryClient = useQueryClient();
@@ -102,7 +140,7 @@ const Jobs = () => {
     error,
     refetch 
   } = useQuery({
-    queryKey: ['jobs', { search: searchTerm, status: statusFilter, type: typeFilter, page }],
+    queryKey: ['jobs', { search: searchTerm, status: statusFilter, type: typeFilter, page, sortBy, sortOrder }],
     queryFn: () => jobAPI.getJobs({
       search: searchTerm || undefined,
       status: statusFilter !== 'all' ? statusFilter : undefined,
@@ -136,9 +174,142 @@ const Jobs = () => {
     }
   });
 
+  // Approve job mutation
+  const approveJobMutation = useMutation({
+    mutationFn: ({ jobId, notes }: { jobId: string; notes?: string }) => 
+      jobAPI.approveJob(jobId, notes),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      toast({
+        title: "Success",
+        description: "Job has been approved successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to approve job",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Reject job mutation
+  const rejectJobMutation = useMutation({
+    mutationFn: ({ jobId, reason }: { jobId: string; reason: string }) => 
+      jobAPI.rejectJob(jobId, reason),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      toast({
+        title: "Success",
+        description: "Job has been rejected successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to reject job",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Update job status mutation
+  const updateStatusMutation = useMutation({
+    mutationFn: ({ jobId, status }: { jobId: string; status: string }) => 
+      jobAPI.updateJobStatus(jobId, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      toast({
+        title: "Success",
+        description: "Job status has been updated successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update job status",
+        variant: "destructive",
+      });
+    }
+  });
+
   const handleDeleteJob = async () => {
     if (!selectedJob) return;
     await deleteJobMutation.mutateAsync(selectedJob.id);
+  };
+
+  const handleApproveJob = async (jobId: string, notes?: string) => {
+    await approveJobMutation.mutateAsync({ jobId, notes });
+  };
+
+  const handleRejectJob = async (jobId: string, reason: string) => {
+    await rejectJobMutation.mutateAsync({ jobId, reason });
+  };
+
+  const handleUpdateStatus = async (jobId: string, status: string) => {
+    await updateStatusMutation.mutateAsync({ jobId, status });
+  };
+
+  const handleBulkAction = async () => {
+    if (!bulkAction || selectedJobs.length === 0) return;
+
+    try {
+      switch (bulkAction) {
+        case 'approve':
+          await Promise.all(selectedJobs.map(jobId => 
+            approveJobMutation.mutateAsync({ jobId, notes: bulkNotes })
+          ));
+          break;
+        case 'reject':
+          await Promise.all(selectedJobs.map(jobId => 
+            rejectJobMutation.mutateAsync({ jobId, reason: bulkNotes })
+          ));
+          break;
+        case 'delete':
+          await Promise.all(selectedJobs.map(jobId => 
+            deleteJobMutation.mutateAsync(jobId)
+          ));
+          break;
+        case 'archive':
+          await Promise.all(selectedJobs.map(jobId => 
+            updateStatusMutation.mutateAsync({ jobId, status: 'ARCHIVED' })
+          ));
+          break;
+      }
+      
+      setSelectedJobs([]);
+      setIsBulkActionsOpen(false);
+      setBulkAction("");
+      setBulkNotes("");
+      
+      toast({
+        title: "Success",
+        description: `Bulk action completed for ${selectedJobs.length} jobs`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to perform bulk action",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSelectAll = () => {
+    if (selectedJobs.length === jobsData?.jobs.length) {
+      setSelectedJobs([]);
+    } else {
+      setSelectedJobs(jobsData?.jobs.map(job => job.id) || []);
+    }
+  };
+
+  const handleSelectJob = (jobId: string) => {
+    setSelectedJobs(prev => 
+      prev.includes(jobId) 
+        ? prev.filter(id => id !== jobId)
+        : [...prev, jobId]
+    );
   };
 
   const formatDate = (dateString: string) => {
@@ -198,11 +369,7 @@ const Jobs = () => {
                 <AlertTriangle className="h-12 w-12 text-red-400 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-red-300 mb-2">Failed to Load Jobs</h3>
                 <p className="text-red-400 mb-4">There was an error loading the jobs data.</p>
-                <Button 
-                  onClick={() => refetch()} 
-                  variant="outline" 
-                  className="border-red-500/50 text-red-300 hover:bg-red-500/10"
-                >
+                <Button onClick={() => refetch()} variant="outline">
                   <RefreshCw className="h-4 w-4 mr-2" />
                   Try Again
                 </Button>
@@ -218,325 +385,426 @@ const Jobs = () => {
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-white">Jobs & Internships</h1>
-            <p className="text-gray-400 mt-1">Manage job postings and internship opportunities</p>
+            <p className="text-muted-foreground">Manage job postings and applications</p>
           </div>
-          <div className="flex items-center space-x-2">
-            <Button 
-              onClick={() => refetch()} 
-              variant="outline" 
-              size="sm"
-              disabled={isLoading}
-              className="border-gray-600 text-gray-300 hover:bg-gray-700"
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              Refresh
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setIsAnalyticsOpen(true)}>
+              <BarChart3 className="h-4 w-4 mr-2" />
+              Analytics
             </Button>
-            <Button 
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-              onClick={() => setIsCreateModalOpen(true)}
-            >
+            <Button onClick={() => setIsCreateModalOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
-              Post Job
+              Create Job
             </Button>
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="bg-gradient-to-br from-gray-800 to-blue-900/20 border-blue-500/20">
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
-                <Briefcase className="h-5 w-5 text-blue-400" />
-                <span className="text-sm text-gray-400">Total Jobs</span>
-              </div>
-              <div className="mt-2">
-                <span className="text-2xl font-bold text-white">{jobsData?.total || 0}</span>
-                <span className="text-xs text-green-400 ml-2 flex items-center">
-                  <TrendingUp className="h-3 w-3 mr-1" />
-                  +8%
-                </span>
-              </div>
-            </CardContent>
-          </Card>
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList>
+            <TabsTrigger value="jobs" className="flex items-center gap-2">
+              <Briefcase className="h-4 w-4" />
+              Jobs ({jobsData?.total || 0})
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Analytics
+            </TabsTrigger>
+          </TabsList>
 
-          <Card className="bg-gradient-to-br from-gray-800 to-green-900/20 border-green-500/20">
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
-                <Play className="h-5 w-5 text-green-400" />
-                <span className="text-sm text-gray-400">Active Jobs</span>
-              </div>
-              <div className="mt-2">
-                <span className="text-2xl font-bold text-white">
-                  {jobsData?.jobs?.filter(j => j.status === 'PUBLISHED').length || 0}
-                </span>
-                <span className="text-xs text-green-400 ml-2 flex items-center">
-                  <TrendingUp className="h-3 w-3 mr-1" />
-                  +12%
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-gray-800 to-purple-900/20 border-purple-500/20">
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
-                <GraduationCap className="h-5 w-5 text-purple-400" />
-                <span className="text-sm text-gray-400">Internships</span>
-              </div>
-              <div className="mt-2">
-                <span className="text-2xl font-bold text-white">
-                  {jobsData?.jobs?.filter(j => j.type === 'INTERNSHIP').length || 0}
-                </span>
-                <span className="text-xs text-blue-400 ml-2 flex items-center">
-                  <TrendingUp className="h-3 w-3 mr-1" />
-                  +15%
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-gray-800 to-orange-900/20 border-orange-500/20">
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2">
-                <Users className="h-5 w-5 text-orange-400" />
-                <span className="text-sm text-gray-400">Total Applications</span>
-              </div>
-              <div className="mt-2">
-                <span className="text-2xl font-bold text-white">
-                  {jobsData?.jobs?.reduce((sum, job) => sum + job.applicationsCount, 0) || 0}
-                </span>
-                <span className="text-xs text-green-400 ml-2 flex items-center">
-                  <TrendingUp className="h-3 w-3 mr-1" />
-                  +22%
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Filters */}
-        <Card className="bg-gray-800/50 border-gray-700/50">
-          <CardContent className="p-4">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Search jobs, companies, or locations..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 bg-gray-700/50 border-gray-600 text-white placeholder-gray-400"
-                />
-              </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full sm:w-48 bg-gray-700/50 border-gray-600 text-white">
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent className="bg-gray-800 border-gray-700">
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="DRAFT">Draft</SelectItem>
-                  <SelectItem value="PUBLISHED">Published</SelectItem>
-                  <SelectItem value="CLOSED">Closed</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="w-full sm:w-48 bg-gray-700/50 border-gray-600 text-white">
-                  <SelectValue placeholder="Filter by type" />
-                </SelectTrigger>
-                <SelectContent className="bg-gray-800 border-gray-700">
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="FULL_TIME">Full Time</SelectItem>
-                  <SelectItem value="PART_TIME">Part Time</SelectItem>
-                  <SelectItem value="INTERNSHIP">Internship</SelectItem>
-                  <SelectItem value="CONTRACT">Contract</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Jobs Grid */}
-        {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Card key={i} className="bg-gray-800/50 border-gray-700/50">
-                <CardContent className="p-6">
-                  <div className="space-y-4">
-                    <Skeleton className="h-6 w-3/4 bg-gray-700" />
-                    <Skeleton className="h-4 w-full bg-gray-700" />
-                    <Skeleton className="h-4 w-2/3 bg-gray-700" />
-                    <div className="flex space-x-2">
-                      <Skeleton className="h-6 w-16 bg-gray-700" />
-                      <Skeleton className="h-6 w-20 bg-gray-700" />
+          <TabsContent value="jobs" className="space-y-6">
+            {/* Filters and Search */}
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex flex-col lg:flex-row gap-4">
+                  <div className="flex-1">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search jobs by title, company, or description..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-10"
+                      />
                     </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger className="w-32">
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Status</SelectItem>
+                        <SelectItem value="DRAFT">Draft</SelectItem>
+                        <SelectItem value="PUBLISHED">Published</SelectItem>
+                        <SelectItem value="CLOSED">Closed</SelectItem>
+                        <SelectItem value="ARCHIVED">Archived</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={typeFilter} onValueChange={setTypeFilter}>
+                      <SelectTrigger className="w-32">
+                        <SelectValue placeholder="Type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Types</SelectItem>
+                        <SelectItem value="FULL_TIME">Full Time</SelectItem>
+                        <SelectItem value="PART_TIME">Part Time</SelectItem>
+                        <SelectItem value="INTERNSHIP">Internship</SelectItem>
+                        <SelectItem value="CONTRACT">Contract</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={sortBy} onValueChange={setSortBy}>
+                      <SelectTrigger className="w-32">
+                        <SelectValue placeholder="Sort by" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="postedAt">Posted Date</SelectItem>
+                        <SelectItem value="title">Title</SelectItem>
+                        <SelectItem value="company">Company</SelectItem>
+                        <SelectItem value="applicationsCount">Applications</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                    >
+                      {sortOrder === 'asc' ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Bulk Actions */}
+            {selectedJobs.length > 0 && (
+              <Card className="bg-blue-900/20 border-blue-500/20">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <span className="text-sm font-medium">
+                        {selectedJobs.length} job{selectedJobs.length !== 1 ? 's' : ''} selected
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsBulkActionsOpen(true)}
+                      >
+                        Bulk Actions
+                      </Button>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedJobs([])}
+                    >
+                      Clear Selection
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {jobsData?.jobs?.map((job) => {
-              const StatusIcon = JOB_STATUS_ICONS[job.status];
-              
-              return (
-                <Card key={job.id} className="bg-gray-800/50 border-gray-700/50 hover:border-gray-600/50 transition-all duration-200 hover:shadow-lg hover:shadow-gray-900/20">
-                  <CardHeader className="pb-3">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <CardTitle className="text-lg text-white line-clamp-2">{job.title}</CardTitle>
-                        <div className="flex items-center space-x-2 mt-2">
-                          <Badge className={JOB_TYPE_COLORS[job.type]}>
+            )}
+
+            {/* Jobs Grid */}
+            {isLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[...Array(6)].map((_, i) => (
+                  <Card key={i}>
+                    <CardHeader>
+                      <Skeleton className="h-6 w-3/4" />
+                      <Skeleton className="h-4 w-1/2" />
+                    </CardHeader>
+                    <CardContent>
+                      <Skeleton className="h-20 w-full" />
+                      <div className="flex gap-2 mt-4">
+                        <Skeleton className="h-6 w-16" />
+                        <Skeleton className="h-6 w-20" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : jobsData?.jobs && jobsData.jobs.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {jobsData.jobs.map((job) => {
+                  const StatusIcon = JOB_STATUS_ICONS[job.status as keyof typeof JOB_STATUS_ICONS] || Pause;
+                  const isSelected = selectedJobs.includes(job.id);
+                  
+                  return (
+                    <Card key={job.id} className={`relative ${isSelected ? 'ring-2 ring-blue-500' : ''}`}>
+                      <CardHeader>
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <CardTitle className="text-lg line-clamp-2">{job.title}</CardTitle>
+                            <div className="flex items-center gap-2 mt-2">
+                              <Building2 className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-sm text-muted-foreground">{job.company?.name}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() => handleSelectJob(job.id)}
+                            />
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                <DropdownMenuItem onClick={() => {
+                                  setSelectedJob(job);
+                                  setIsDetailsModalOpen(true);
+                                }}>
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  View Details
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setEditingJob(job)}>
+                                  <Edit className="h-4 w-4 mr-2" />
+                                  Edit
+                                </DropdownMenuItem>
+                                {job.status === 'DRAFT' && (
+                                  <>
+                                    <DropdownMenuItem onClick={() => handleApproveJob(job.id)}>
+                                      <CheckCircle className="h-4 w-4 mr-2" />
+                                      Approve
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleRejectJob(job.id, 'Rejected by admin')}>
+                                      <XCircle className="h-4 w-4 mr-2" />
+                                      Reject
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem 
+                                  onClick={() => {
+                                    setSelectedJob(job);
+                                    setIsDeleteDialogOpen(true);
+                                  }}
+                                  className="text-red-600"
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-sm text-muted-foreground line-clamp-3 mb-4">
+                          {job.description}
+                        </p>
+                        
+                        <div className="flex items-center gap-2 mb-4">
+                          <Badge className={JOB_TYPE_COLORS[job.type as keyof typeof JOB_TYPE_COLORS]}>
                             {job.type.replace('_', ' ')}
                           </Badge>
-                          <Badge className={JOB_STATUS_COLORS[job.status]}>
+                          <Badge className={JOB_STATUS_COLORS[job.status as keyof typeof JOB_STATUS_COLORS]}>
                             <StatusIcon className="h-3 w-3 mr-1" />
                             {job.status}
                           </Badge>
                         </div>
-                      </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-400 hover:text-white">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent className="bg-gray-800 border-gray-700">
-                          <DropdownMenuLabel className="text-gray-300">Actions</DropdownMenuLabel>
-                          <DropdownMenuSeparator className="bg-gray-700" />
-                          <DropdownMenuItem className="text-gray-300 hover:bg-gray-700">
-                            <Eye className="h-4 w-4 mr-2" />
-                            View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            className="text-gray-300 hover:bg-gray-700"
-                            onClick={() => {
-                              setEditingJob(job);
-                              setIsCreateModalOpen(true);
-                            }}
-                          >
-                            <Edit className="h-4 w-4 mr-2" />
-                            Edit Job
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator className="bg-gray-700" />
-                          <DropdownMenuItem 
-                            className="text-red-400 hover:bg-red-500/10"
-                            onClick={() => {
-                              setSelectedJob(job);
-                              setIsDeleteDialogOpen(true);
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete Job
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <p className="text-gray-400 text-sm line-clamp-3">{job.description}</p>
-                    
-                    <div className="space-y-2">
-                      <div className="flex items-center space-x-2 text-sm">
-                        <Building2 className="h-4 w-4 text-gray-500" />
-                        <span className="text-gray-300">{job.company.name}</span>
-                      </div>
-                      
-                      <div className="flex items-center space-x-2 text-sm">
-                        <MapPin className="h-4 w-4 text-gray-500" />
-                        <span className="text-gray-300 line-clamp-1">{job.location}</span>
-                      </div>
-                      
-                      <div className="flex items-center space-x-2 text-sm">
-                        <Calendar className="h-4 w-4 text-gray-500" />
-                        <span className="text-gray-300">Posted {formatRelativeDate(job.postedAt)}</span>
-                        <span className="text-gray-500">({formatDate(job.postedAt)})</span>
-                      </div>
-                      
-                      <div className="flex items-center space-x-2 text-sm">
-                        <Users className="h-4 w-4 text-gray-500" />
-                        <span className={`text-gray-300 ${getApplicationColor(job.applicationsCount)}`}>
-                          {job.applicationsCount} applications
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center space-x-2 pt-2">
-                      <Avatar className="h-6 w-6">
-                        <AvatarFallback className="text-xs bg-gray-700 text-gray-300">
-                          {getInitials(job.company.name)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="text-xs text-gray-400">{job.company.email}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        )}
 
-        {/* Empty State */}
-        {!isLoading && jobsData?.jobs?.length === 0 && (
-          <Card className="bg-gray-800/50 border-gray-700/50">
-            <CardContent className="flex items-center justify-center p-12">
-              <div className="text-center">
-                <Briefcase className="h-12 w-12 text-gray-500 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-300 mb-2">No Jobs Found</h3>
-                <p className="text-gray-400 mb-4">
-                  {searchTerm || statusFilter !== 'all' || typeFilter !== 'all' 
-                    ? 'Try adjusting your filters or search terms.'
-                    : 'Get started by posting your first job opportunity.'
-                  }
+                        <div className="flex items-center justify-between text-sm text-muted-foreground">
+                          <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-1">
+                              <MapPin className="h-3 w-3" />
+                              {job.location}
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Users className="h-3 w-3" />
+                              <span className={getApplicationColor(job.applicationsCount)}>
+                                {job.applicationsCount} applications
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {formatRelativeDate(job.postedAt)}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            ) : (
+              <Card>
+                <CardContent className="flex items-center justify-center p-8">
+                  <div className="text-center">
+                    <Briefcase className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">No Jobs Found</h3>
+                    <p className="text-muted-foreground mb-4">
+                      {searchTerm || statusFilter !== 'all' || typeFilter !== 'all'
+                        ? 'Try adjusting your filters or search terms.'
+                        : 'Get started by creating your first job posting.'}
+                    </p>
+                    <Button onClick={() => setIsCreateModalOpen(true)}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create Job
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Pagination */}
+            {jobsData && jobsData.totalPages > 1 && (
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Showing {((page - 1) * 12) + 1} to {Math.min(page * 12, jobsData.total)} of {jobsData.total} jobs
                 </p>
-                <Button 
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                  onClick={() => setIsCreateModalOpen(true)}
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page === 1}
+                    onClick={() => setPage(prev => prev - 1)}
+                  >
+                    Previous
+                  </Button>
+                  <span className="text-sm">
+                    Page {page} of {jobsData.totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page === jobsData.totalPages}
+                    onClick={() => setPage(prev => prev + 1)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="analytics">
+            <JobAnalytics />
+          </TabsContent>
+        </Tabs>
+
+        {/* Modals */}
+        <JobCreationModal
+          isOpen={isCreateModalOpen}
+          onClose={() => setIsCreateModalOpen(false)}
+          editingJob={editingJob}
+          onEditComplete={() => {
+            setEditingJob(null);
+            setIsCreateModalOpen(false);
+          }}
+        />
+
+        <JobDetailsModal
+          jobId={selectedJob?.id || null}
+          isOpen={isDetailsModalOpen}
+          onClose={() => {
+            setIsDetailsModalOpen(false);
+            setSelectedJob(null);
+          }}
+        />
+
+        {/* Analytics Modal */}
+        <Dialog open={isAnalyticsOpen} onOpenChange={setIsAnalyticsOpen}>
+          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Job Analytics</DialogTitle>
+              <DialogDescription>
+                Comprehensive insights into job postings and applications
+              </DialogDescription>
+            </DialogHeader>
+            <JobAnalytics />
+          </DialogContent>
+        </Dialog>
+
+        {/* Bulk Actions Dialog */}
+        <Dialog open={isBulkActionsOpen} onOpenChange={setIsBulkActionsOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Bulk Actions</DialogTitle>
+              <DialogDescription>
+                Perform actions on {selectedJobs.length} selected job{selectedJobs.length !== 1 ? 's' : ''}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="action">Select Action</Label>
+                <Select value={bulkAction} onValueChange={setBulkAction}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose an action" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="approve">Approve Jobs</SelectItem>
+                    <SelectItem value="reject">Reject Jobs</SelectItem>
+                    <SelectItem value="archive">Archive Jobs</SelectItem>
+                    <SelectItem value="delete">Delete Jobs</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {(bulkAction === 'approve' || bulkAction === 'reject') && (
+                <div>
+                  <Label htmlFor="notes">
+                    {bulkAction === 'approve' ? 'Notes (Optional)' : 'Reason (Required)'}
+                  </Label>
+                  <Textarea
+                    id="notes"
+                    value={bulkNotes}
+                    onChange={(e) => setBulkNotes(e.target.value)}
+                    placeholder={
+                      bulkAction === 'approve' 
+                        ? 'Add notes about the approval...'
+                        : 'Provide a reason for rejection...'
+                    }
+                    rows={3}
+                  />
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleBulkAction}
+                  disabled={!bulkAction || (bulkAction === 'reject' && !bulkNotes.trim())}
                 >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Post Job
+                  {bulkAction === 'approve' && 'Approve Jobs'}
+                  {bulkAction === 'reject' && 'Reject Jobs'}
+                  {bulkAction === 'archive' && 'Archive Jobs'}
+                  {bulkAction === 'delete' && 'Delete Jobs'}
+                </Button>
+                <Button variant="outline" onClick={() => setIsBulkActionsOpen(false)}>
+                  Cancel
                 </Button>
               </div>
-            </CardContent>
-          </Card>
-        )}
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Delete Confirmation Dialog */}
         <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-          <AlertDialogContent className="bg-gray-800 border-gray-700">
+          <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle className="text-white">Delete Job</AlertDialogTitle>
-              <AlertDialogDescription className="text-gray-400">
+              <AlertDialogTitle>Delete Job</AlertDialogTitle>
+              <AlertDialogDescription>
                 Are you sure you want to delete "{selectedJob?.title}"? This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel className="border-gray-600 text-gray-300 hover:bg-gray-700">
-                Cancel
-              </AlertDialogCancel>
-              <AlertDialogAction 
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
                 onClick={handleDeleteJob}
-                disabled={deleteJobMutation.isPending}
                 className="bg-red-600 hover:bg-red-700"
               >
-                {deleteJobMutation.isPending ? 'Deleting...' : 'Delete'}
+                Delete
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-
-        {/* Job Creation/Edit Modal */}
-        <JobCreationModal
-          isOpen={isCreateModalOpen}
-          onClose={() => {
-            setIsCreateModalOpen(false);
-            setEditingJob(null);
-          }}
-          job={editingJob}
-          mode={editingJob ? 'edit' : 'create'}
-        />
       </div>
     </DashboardLayout>
   );

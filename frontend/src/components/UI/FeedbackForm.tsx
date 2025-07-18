@@ -5,7 +5,7 @@ import Button from './Button';
 
 interface FeedbackFormProps {
   projectId: string;
-  onSubmit: (feedback: { rating: number; comment: string }) => void;
+  onSubmit: (feedback: { rating: number; content: string }) => void;
   onCancel: () => void;
 }
 
@@ -16,7 +16,7 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({
 }) => {
   const [rating, setRating] = useState(0);
   const [hoveredRating, setHoveredRating] = useState(0);
-  const [comment, setComment] = useState('');
+  const [content, setContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -25,7 +25,7 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({
 
     setIsSubmitting(true);
     try {
-      await onSubmit({ rating, comment });
+      await onSubmit({ rating, content });
       onCancel(); // Close form after successful submission
     } catch (error) {
       console.error('Failed to submit feedback:', error);
@@ -116,16 +116,18 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({
 
               {/* Comment */}
               <div>
-                <label htmlFor="comment" className="block text-sm font-medium text-gray-300 mb-2">
-                  Comments
+                <label htmlFor="content" className="block text-sm font-medium text-gray-300 mb-2">
+                  Feedback *
                 </label>
                 <textarea
-                  id="comment"
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
+                  id="content"
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
                   placeholder="Share your thoughts about this project..."
                   rows={4}
                   className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                  minLength={10}
+                  maxLength={1000}
                 />
               </div>
 
@@ -141,7 +143,7 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({
                 </Button>
                 <Button
                   type="submit"
-                  disabled={rating === 0 || isSubmitting}
+                  disabled={rating === 0 || content.trim().length < 10 || isSubmitting}
                   className="flex-1"
                 >
                   {isSubmitting ? 'Submitting...' : 'Submit Feedback'}

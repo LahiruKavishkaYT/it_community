@@ -1,5 +1,172 @@
 import { Project, Event, Job } from '../types';
 
+// Mock Learning Projects for Frontend Path
+export const mockFrontendLearningProjects: Project[] = [
+  {
+    id: 'frontend-1',
+    title: 'Responsive Portfolio Website',
+    description: 'Build a modern, responsive portfolio website using HTML5, CSS3, and vanilla JavaScript. Learn semantic HTML structure, CSS Grid, Flexbox, responsive design principles, and basic DOM manipulation. Perfect for beginners to understand web fundamentals.',
+    technologies: ['HTML5', 'CSS3', 'JavaScript', 'Responsive Design'],
+    githubUrl: 'https://github.com/learn-frontend/portfolio-starter',
+    liveUrl: 'https://frontend-portfolio-demo.netlify.app',
+    imageUrl: 'https://images.unsplash.com/photo-1467232004584-a241de8bcf5d?w=800&h=600',
+    author: 'Frontend Mentor',
+    authorId: 'mentor1',
+    projectType: 'PRACTICE_PROJECT',
+    architecture: 'Static website using semantic HTML5 structure, CSS3 with mobile-first responsive design, and vanilla JavaScript for interactive elements like smooth scrolling and form validation.',
+    learningObjectives: [
+      'Master HTML5 semantic elements and accessibility',
+      'Learn CSS Grid and Flexbox layout systems',
+      'Implement responsive design with media queries',
+      'Practice DOM manipulation with vanilla JavaScript',
+      'Understand web performance optimization basics'
+    ],
+    keyFeatures: [
+      'Mobile-first responsive design',
+      'Smooth scrolling navigation',
+      'Contact form with validation',
+      'CSS animations and transitions',
+      'Optimized images and performance'
+    ],
+    createdAt: '2024-01-10T08:00:00Z',
+    feedback: [
+      {
+        id: 'fb1',
+        authorId: 'student1',
+        authorName: 'John Doe',
+        content: 'Great starter project! Really helped me understand CSS Grid and Flexbox. The step-by-step guide is excellent.',
+        rating: 5,
+        createdAt: '2024-01-15T10:30:00Z'
+      },
+      {
+        id: 'fb2',
+        authorId: 'student2',
+        authorName: 'Jane Smith',
+        content: 'Perfect for beginners. The responsive design challenges really pushed me to think about mobile users.',
+        rating: 4,
+        createdAt: '2024-01-18T14:20:00Z'
+      }
+    ]
+  },
+  {
+    id: 'frontend-2',
+    title: 'Interactive Todo App with React',
+    description: 'Create a fully functional todo application using React hooks, local storage, and modern JavaScript. Learn component composition, state management, event handling, and data persistence. Includes filtering, editing, and drag-and-drop functionality.',
+    technologies: ['React', 'JavaScript ES6+', 'CSS Modules', 'Local Storage', 'React Hooks'],
+    githubUrl: 'https://github.com/learn-frontend/react-todo-advanced',
+    liveUrl: 'https://react-todo-learning.vercel.app',
+    imageUrl: 'https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?w=800&h=600',
+    author: 'React Academy',
+    authorId: 'mentor2',
+    projectType: 'PRACTICE_PROJECT',
+    architecture: 'React single-page application using functional components and hooks. State management with useState and useEffect, data persistence with localStorage, and modular CSS for styling.',
+    learningObjectives: [
+      'Master React functional components and hooks',
+      'Learn state management patterns in React',
+      'Implement CRUD operations in frontend',
+      'Practice event handling and form management',
+      'Understand component lifecycle and side effects'
+    ],
+    keyFeatures: [
+      'Add, edit, and delete todos',
+      'Mark todos as complete/incomplete',
+      'Filter todos by status',
+      'Drag and drop reordering',
+      'Data persistence with localStorage',
+      'Responsive design for mobile and desktop'
+    ],
+    createdAt: '2024-01-12T10:00:00Z',
+    feedback: [
+      {
+        id: 'fb3',
+        authorId: 'student3',
+        authorName: 'Mike Johnson',
+        content: 'Excellent project for learning React hooks! The drag-and-drop feature was challenging but rewarding.',
+        rating: 5,
+        createdAt: '2024-01-20T09:15:00Z'
+      }
+    ]
+  },
+  {
+    id: 'frontend-3',
+    title: 'Weather Dashboard with API Integration',
+    description: 'Build a comprehensive weather dashboard that fetches real-time data from weather APIs. Learn async JavaScript, API integration, error handling, and dynamic UI updates. Includes geolocation, search functionality, and weather visualizations.',
+    technologies: ['JavaScript ES6+', 'Fetch API', 'CSS3', 'Chart.js', 'Weather API'],
+    githubUrl: 'https://github.com/learn-frontend/weather-dashboard',
+    liveUrl: 'https://weather-learn-app.github.io',
+    imageUrl: 'https://images.unsplash.com/photo-1504608524841-42fe6f032b4b?w=800&h=600',
+    author: 'API Masters',
+    authorId: 'mentor3',
+    projectType: 'PRACTICE_PROJECT',
+    architecture: 'Vanilla JavaScript application with modular architecture. Uses Fetch API for weather data, Chart.js for data visualization, and CSS3 for responsive design and animations.',
+    learningObjectives: [
+      'Master asynchronous JavaScript and Promises',
+      'Learn API integration and error handling',
+      'Practice data visualization with Chart.js',
+      'Implement geolocation and browser APIs',
+      'Handle dynamic content updates and loading states'
+    ],
+    keyFeatures: [
+      'Current weather and 5-day forecast',
+      'City search with autocomplete',
+      'Geolocation-based weather',
+      'Weather charts and graphs',
+      'Favorite locations management',
+      'Dark/light theme toggle'
+    ],
+    createdAt: '2024-01-14T12:00:00Z',
+    feedback: [
+      {
+        id: 'fb4',
+        authorId: 'student4',
+        authorName: 'Sarah Wilson',
+        content: 'Great project for understanding API calls and async JavaScript. The error handling examples were very helpful.',
+        rating: 4,
+        createdAt: '2024-01-22T16:45:00Z'
+      }
+    ]
+  },
+  {
+    id: 'frontend-4',
+    title: 'E-commerce Product Catalog with TypeScript',
+    description: 'Develop a modern e-commerce product catalog using TypeScript, React, and modern state management. Learn type safety, component architecture, state management with Context API, and advanced React patterns. Includes filtering, sorting, and shopping cart functionality.',
+    technologies: ['TypeScript', 'React', 'Context API', 'CSS-in-JS', 'React Router'],
+    githubUrl: 'https://github.com/learn-frontend/typescript-ecommerce',
+    liveUrl: 'https://ts-ecommerce-demo.vercel.app',
+    imageUrl: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&h=600',
+    author: 'TypeScript Pros',
+    authorId: 'mentor4',
+    projectType: 'PRACTICE_PROJECT',
+    architecture: 'TypeScript React application with strict type checking. Uses Context API for global state management, React Router for navigation, and styled-components for CSS-in-JS styling.',
+    learningObjectives: [
+      'Master TypeScript with React development',
+      'Learn advanced React patterns and hooks',
+      'Implement global state management with Context API',
+      'Practice component composition and reusability',
+      'Understand type-safe development workflows'
+    ],
+    keyFeatures: [
+      'Product listing with pagination',
+      'Advanced filtering and sorting',
+      'Shopping cart functionality',
+      'Product detail pages',
+      'Search with real-time results',
+      'Responsive design with CSS-in-JS'
+    ],
+    createdAt: '2024-01-16T14:30:00Z',
+    feedback: [
+      {
+        id: 'fb5',
+        authorId: 'student5',
+        authorName: 'Alex Chen',
+        content: 'Challenging but excellent for learning TypeScript with React. The type safety really helped catch bugs early.',
+        rating: 5,
+        createdAt: '2024-01-25T11:20:00Z'
+      }
+    ]
+  }
+];
+
 // Mock Projects Data
 export const mockProjects: Project[] = [
   {
@@ -290,9 +457,104 @@ export const mockJobs: Job[] = [
   }
 ];
 
+// Mock Learning Projects for Backend Path
+export const mockBackendLearningProjects: Project[] = [
+  {
+    id: 'backend-1',
+    title: 'RESTful API with Node.js and Express',
+    description: 'Build a complete RESTful API using Node.js, Express, and MongoDB. Learn server-side development, database integration, authentication with JWT, input validation, error handling, and API documentation with Swagger.',
+    technologies: ['Node.js', 'Express', 'MongoDB', 'JWT', 'Swagger'],
+    githubUrl: 'https://github.com/learn-backend/nodejs-api-starter',
+    imageUrl: 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=800&h=600',
+    author: 'Backend Academy',
+    authorId: 'backend-mentor1',
+    projectType: 'PRACTICE_PROJECT',
+    architecture: 'RESTful API architecture with Express.js middleware, MongoDB for data persistence, JWT for authentication, and comprehensive error handling and logging.',
+    learningObjectives: [
+      'Master Node.js and Express.js fundamentals',
+      'Learn MongoDB integration and schema design',
+      'Implement JWT authentication and authorization',
+      'Practice RESTful API design principles',
+      'Understand middleware and error handling patterns'
+    ],
+    keyFeatures: [
+      'Complete CRUD operations',
+      'User authentication and authorization',
+      'Input validation and sanitization',
+      'Error handling and logging',
+      'API documentation with Swagger',
+      'Database relationships and indexing'
+    ],
+    createdAt: '2024-01-11T08:00:00Z',
+    feedback: []
+  },
+  {
+    id: 'backend-2',
+    title: 'GraphQL API with Apollo Server',
+    description: 'Create a modern GraphQL API using Apollo Server, TypeScript, and PostgreSQL. Learn schema-first development, resolvers, data loaders, subscriptions, and performance optimization techniques.',
+    technologies: ['GraphQL', 'Apollo Server', 'TypeScript', 'PostgreSQL', 'Prisma'],
+    githubUrl: 'https://github.com/learn-backend/graphql-apollo-starter',
+    imageUrl: 'https://images.unsplash.com/photo-1555949963-aa79dcee981c?w=800&h=600',
+    author: 'GraphQL Masters',
+    authorId: 'backend-mentor2',
+    projectType: 'PRACTICE_PROJECT',
+    architecture: 'GraphQL API with Apollo Server, TypeScript for type safety, PostgreSQL with Prisma ORM, data loaders for performance optimization, and subscription support for real-time features.',
+    learningObjectives: [
+      'Master GraphQL schema design and resolvers',
+      'Learn Apollo Server and ecosystem tools',
+      'Implement type-safe development with TypeScript',
+      'Practice database design with PostgreSQL',
+      'Understand performance optimization with data loaders'
+    ],
+    keyFeatures: [
+      'Type-safe GraphQL schema',
+      'Complex data relationships',
+      'Real-time subscriptions',
+      'Performance optimization',
+      'Authentication and authorization',
+      'Comprehensive testing suite'
+    ],
+    createdAt: '2024-01-13T10:00:00Z',
+    feedback: []
+  }
+];
+
+// Mock Learning Projects for DevOps Path
+export const mockDevOpsLearningProjects: Project[] = [
+  {
+    id: 'devops-1',
+    title: 'CI/CD Pipeline with Docker and GitHub Actions',
+    description: 'Set up a complete CI/CD pipeline using Docker containers, GitHub Actions, and AWS deployment. Learn containerization, automated testing, deployment strategies, and infrastructure as code.',
+    technologies: ['Docker', 'GitHub Actions', 'AWS', 'Terraform', 'Kubernetes'],
+    githubUrl: 'https://github.com/learn-devops/cicd-pipeline-starter',
+    imageUrl: 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=800&h=600',
+    author: 'DevOps Experts',
+    authorId: 'devops-mentor1',
+    projectType: 'PRACTICE_PROJECT',
+    architecture: 'Complete CI/CD pipeline with Docker containerization, GitHub Actions for automation, Terraform for infrastructure as code, and Kubernetes for orchestration.',
+    learningObjectives: [
+      'Master Docker containerization and best practices',
+      'Learn CI/CD pipeline design and implementation',
+      'Practice infrastructure as code with Terraform',
+      'Understand Kubernetes orchestration',
+      'Implement monitoring and logging solutions'
+    ],
+    keyFeatures: [
+      'Automated build and test pipeline',
+      'Docker containerization',
+      'Infrastructure as code',
+      'Kubernetes deployment',
+      'Monitoring and alerting',
+      'Security scanning and compliance'
+    ],
+    createdAt: '2024-01-15T12:00:00Z',
+    feedback: []
+  }
+];
+
 // Mock Dashboard Data
 export const mockDashboardData = {
   projects: mockProjects.slice(0, 4),
   events: mockEvents.slice(0, 3),
   jobs: mockJobs.slice(0, 3)
-}; 
+};

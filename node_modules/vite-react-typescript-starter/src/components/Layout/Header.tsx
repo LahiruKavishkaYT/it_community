@@ -1,11 +1,32 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Code, Bell, User, LogOut } from 'lucide-react';
+import { getNotifications, markNotificationAsRead } from '../../services/api';
 
 const Header: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      getNotifications().then(setNotifications).catch(error => {
+        console.error('Failed to fetch notifications:', error);
+        setNotifications([]);
+      });
+    } else {
+      setNotifications([]);
+    }
+  }, [user]);
+
+  const unreadCount = notifications.filter(n => !n.isRead).length;
+
+  const handleNotificationClick = async (id: string) => {
+    await markNotificationAsRead(id);
+    setNotifications(notifications => notifications.map(n => n.id === id ? { ...n, isRead: true } : n));
+  };
 
   const handleLogout = () => {
     logout();
@@ -95,9 +116,39 @@ const Header: React.FC = () => {
           <div className="flex items-center space-x-4">
             {user ? (
               <>
-                <button className="p-2 text-gray-400 hover:text-gray-300 transition-colors">
-                  <Bell className="h-5 w-5" />
-                </button>
+                <div className="relative ml-4">
+                  <button
+                    className="relative flex items-center justify-center p-2 hover:bg-gray-800 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onClick={() => setShowDropdown(v => !v)}
+                    aria-label={`Notifications (${unreadCount} unread)`}
+                  >
+                    <Bell className="h-5 w-5 text-gray-300" />
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-red-600 text-white rounded-full text-xs px-1.5 py-0.5 leading-none">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    )}
+                  </button>
+                  {showDropdown && (
+                    <div className="absolute right-0 mt-2 w-80 bg-white shadow-lg rounded-lg z-50">
+                      <div className="p-2 border-b font-bold">Notifications</div>
+                      <ul className="max-h-96 overflow-y-auto">
+                        {notifications.length === 0 && <li className="p-4 text-gray-500">No notifications</li>}
+                        {notifications.map(n => (
+                          <li
+                            key={n.id}
+                            className={`p-3 border-b cursor-pointer ${n.isRead ? 'bg-gray-100' : 'bg-blue-50 font-semibold'}`}
+                            onClick={() => handleNotificationClick(n.id)}
+                          >
+                            <div className="text-sm">{n.title}</div>
+                            <div className="text-xs text-gray-500">{n.message}</div>
+                            <div className="text-xs text-gray-400 mt-1">{new Date(n.createdAt).toLocaleString()}</div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
                 <div className="flex items-center space-x-3">
                   <Link
                     to="/profile"

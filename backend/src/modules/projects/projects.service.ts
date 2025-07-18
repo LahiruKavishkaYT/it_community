@@ -3,16 +3,19 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { CreateFeedbackDto } from './dto/create-feedback.dto';
-import { Project, UserRole, ProjectType } from '../../../generated/prisma';
+import { Project, ProjectType, UserRole, ProjectStatus } from '../../../generated/prisma';
 import { ActivitiesService } from '../activities/activities.service';
 import { DashboardGateway } from '../admin/dashboard.gateway';
+import { NotificationService } from '../notifications/notification.service';
+import { $Enums } from '../../../generated/prisma';
 
 @Injectable()
 export class ProjectsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly activitiesService: ActivitiesService,
-    private readonly dashboardGateway: DashboardGateway
+    private readonly dashboardGateway: DashboardGateway,
+    private readonly notificationService: NotificationService
   ) {}
 
   async findAll(): Promise<Project[]> {
@@ -158,13 +161,23 @@ export class ProjectsService {
     // Validate project type based on user role
     this.validateProjectTypeByRole(createProjectDto.projectType, user.role);
 
+    // Determine project status based on type and user role
+    let projectStatus: ProjectStatus = 'PENDING_APPROVAL';
+    let isPublic = false;
+
+    // Learning projects always need admin approval regardless of user role
+    if (createProjectDto.isLearningProject) {
+      projectStatus = 'PENDING_APPROVAL';
+      isPublic = false;
+    }
+
     const project = await this.prisma.project.create({
       data: {
         ...createProjectDto,
         authorId,
-        status: 'PENDING_APPROVAL', // Set to pending approval
+        status: projectStatus,
         submittedAt: new Date(),
-        isPublic: false // Not public until approved
+        isPublic: isPublic
       },
       include: {
         author: {
@@ -176,35 +189,69 @@ export class ProjectsService {
             role: true,
           },
         },
+        feedback: true,
       },
     });
 
-    // Log the activity
+    // Log activity for project creation
     await this.activitiesService.logProjectUpload(
       authorId,
       project.title,
       project.id
     );
 
-    // Emit real-time update to admin dashboard
-    this.dashboardGateway.emitProjectApprovalUpdate({
-      action: 'project-submitted',
-      project: {
-        id: project.id,
-        title: project.title,
-        author: project.author.name,
-        authorEmail: project.author.email,
-        projectType: project.projectType,
-        status: project.status,
-        submittedAt: project.submittedAt
-      }
-    });
+    // Send notification to admins for learning projects that need approval
+    if (createProjectDto.isLearningProject && projectStatus === 'PENDING_APPROVAL') {
+      try {
+        const admins = await this.prisma.user.findMany({
+          where: { role: 'ADMIN' },
+          select: { id: true }
+        });
 
-    // Emit metrics update
-    this.dashboardGateway.emitMetricsUpdate({
-      type: 'project-created',
-      data: { projectId: project.id }
-    });
+        for (const admin of admins) {
+          await this.notificationService.createNotification({
+            userId: admin.id,
+            type: $Enums.NotificationType.PROJECT_NEEDS_APPROVAL,
+            title: 'New Learning Project Awaiting Approval',
+            message: `${project.author.name} submitted learning project "${project.title}" for review`,
+            priority: $Enums.NotificationPriority.HIGH,
+            itemId: project.id,
+            itemType: 'learning-project',
+            metadata: {
+              projectTitle: project.title,
+              authorName: project.author.name,
+              authorEmail: project.author.email,
+              projectCategory: createProjectDto.projectCategory,
+              difficultyLevel: createProjectDto.difficultyLevel,
+              isLearningProject: true,
+              submittedAt: project.submittedAt
+            }
+          });
+        }
+
+        // Emit real-time update to admin dashboard
+        if (this.dashboardGateway) {
+          this.dashboardGateway.emitProjectApprovalUpdate({
+            action: 'learning-project-submitted',
+            project: {
+              id: project.id,
+              title: project.title,
+              author: project.author.name,
+              authorEmail: project.author.email,
+              projectType: project.projectType,
+              projectCategory: createProjectDto.projectCategory,
+              difficultyLevel: createProjectDto.difficultyLevel,
+              isLearningProject: true,
+              status: project.status,
+              submittedAt: project.submittedAt
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Failed to notify admins about learning project submission:', error);
+        // Don't fail the project creation if notification fails
+      }
+    }
 
     // Transform the data to match frontend expectations
     return {
@@ -373,6 +420,24 @@ export class ProjectsService {
       project.id
     );
 
+    // Send notification to project author about new feedback
+    await this.notificationService.createNotification({
+      userId: project.authorId,
+      type: $Enums.NotificationType.SYSTEM_MESSAGE,
+      title: 'New Feedback Received',
+      message: `${feedback.author.name} left feedback (${createFeedbackDto.rating}/5 stars) on "${project.title}"`,
+      priority: $Enums.NotificationPriority.MEDIUM,
+      itemId: project.id,
+      itemType: 'project',
+      metadata: {
+        projectTitle: project.title,
+        feedbackAuthor: feedback.author.name,
+        rating: createFeedbackDto.rating,
+        feedbackContent: createFeedbackDto.content,
+        feedbackId: feedback.id
+      }
+    });
+
     // Return formatted feedback
     return {
       ...feedback,
@@ -469,5 +534,38 @@ export class ProjectsService {
         overallAverageRating,
       },
     };
+  }
+
+  async findLearningProjectsFromOrgAuthors(category?: string): Promise<Project[]> {
+    const projects = await this.prisma.project.findMany({
+      where: {
+        isLearningProject: true,
+        status: 'APPROVED',
+        isPublic: true,
+        author: {
+          role: { in: ['PROFESSIONAL', 'COMPANY'] },
+        },
+        ...(category ? { projectCategory: { equals: category, mode: 'insensitive' } } : {}),
+      },
+      include: {
+        author: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true,
+            role: true,
+          },
+        },
+        feedback: {
+          select: { id: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return projects.map((p) => ({
+      ...p,
+      author: p.author.name,
+    }));
   }
 } 

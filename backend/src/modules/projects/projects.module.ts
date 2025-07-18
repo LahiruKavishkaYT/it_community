@@ -4,9 +4,10 @@ import { ProjectsController } from './projects.controller';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ActivitiesModule } from '../activities/activities.module';
 import { AdminModule } from '../admin/admin.module';
+import { NotificationModule } from '../notifications/notification.module';
 
 @Module({
-  imports: [ActivitiesModule, AdminModule],
+  imports: [ActivitiesModule, AdminModule, NotificationModule],
   controllers: [ProjectsController],
   providers: [ProjectsService, PrismaService],
   exports: [ProjectsService],

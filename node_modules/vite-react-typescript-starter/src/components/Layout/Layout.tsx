@@ -8,7 +8,14 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const { user } = useAuth();
+  // Add error boundary for auth context
+  let user = null;
+  try {
+    const authContext = useAuth();
+    user = authContext.user;
+  } catch (error) {
+    console.warn('Auth context not available, rendering layout without auth');
+  }
 
   return (
     <div className="min-h-screen bg-gray-900">

@@ -26,12 +26,15 @@ import {
   Share2,
   Loader2,
   X,
-  CheckCircle
+  CheckCircle,
+  Settings
 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '../components/UI/Card';
 import Button from '../components/UI/Button';
 import { Event, EventStats, EventRegistration } from '../types';
 import { getEvents, createEvent, getEventStats, getUserRegisteredEvents, registerForEvent } from '../services/api';
+import EventRegistrationModal from '../components/UI/EventRegistrationModal';
+import { useNavigate } from 'react-router-dom';
 
 // Event Creation Modal Component
 const EventCreationModal: React.FC<{
@@ -46,13 +49,16 @@ const EventCreationModal: React.FC<{
   
   const [formData, setFormData] = useState({
     title: '',
+    type: 'WORKSHOP' as 'WORKSHOP' | 'HACKATHON' | 'NETWORKING' | 'SEMINAR' | 'RECRUITMENT_DRIVE',
     description: '',
-    location: '',
-    type: 'workshop' as 'workshop' | 'networking' | 'hackathon' | 'seminar',
+    imageUrl: '',
     date: '',
     time: '',
+    locationType: 'ONSITE' as 'ONSITE' | 'VIRTUAL',
+    foodAndDrinksProvided: false,
     maxAttendees: '',
-    imageUrl: '',
+    // Legacy fields for backward compatibility
+    location: '',
     foodProvided: false,
     drinksProvided: false
   });
@@ -75,30 +81,91 @@ const EventCreationModal: React.FC<{
       return;
     }
 
-    if (!formData.title.trim() || !formData.description.trim() || !formData.location.trim() || !formData.date || !formData.time) {
-      setError('Title, description, location, date, and time are required');
+    // Enhanced validation for new fields
+    if (!formData.title.trim()) {
+      setError('Event title is required');
       return;
+    }
+
+    if (!formData.type) {
+      setError('Event type is required');
+      return;
+    }
+
+    if (!formData.description.trim()) {
+      setError('Event description is required');
+      return;
+    }
+
+    if (!formData.date || !formData.time) {
+      setError('Event date and time are required');
+      return;
+    }
+
+    // Compute start/end based on single date/time picker
+    const startDateTime = new Date(`${formData.date}T${formData.time}`);
+    // Use +1 hour as default duration
+    const endDateTime = new Date(startDateTime.getTime() + 60 * 60 * 1000);
+
+    // Validate future start time
+    if (startDateTime <= new Date()) {
+      setError('Event must be scheduled in the future');
+      return;
+    }
+
+    if (!formData.locationType) {
+      setError('Location type is required');
+      return;
+    }
+
+    if (formData.locationType === 'ONSITE' && !formData.location.trim()) {
+      setError('Location is required for on-site events');
+      return;
+    }
+
+    if (formData.locationType === 'VIRTUAL' && !formData.location.trim()) {
+      setError('Location is required for virtual events');
+      return;
+    }
+
+    // Registration deadline defaults to 24 h before start
+    let registrationDeadline = new Date(startDateTime.getTime() - 24 * 60 * 60 * 1000);
+    // Ensure deadline is still in the future
+    const now = new Date();
+    if (registrationDeadline <= now) {
+      registrationDeadline = new Date(now.getTime() + 60 * 60 * 1000); // default 1 h from now
     }
 
     setIsSubmitting(true);
     setError(null);
 
     try {
-      // Combine date and time into ISO format
-      const eventDateTime = new Date(`${formData.date}T${formData.time}`).toISOString();
+      // Combine date and time into ISO format for start and end times
+      const startDateTimeISO = startDateTime.toISOString();
+      const endDateTimeISO = endDateTime.toISOString();
+      const registrationDeadlineISO = registrationDeadline.toISOString();
       
       const newEvent = await createEvent({
         title: formData.title.trim(),
+        type: formData.type,
         description: formData.description.trim(),
-        date: eventDateTime,
-        location: formData.location.trim(),
-        type: formData.type.toUpperCase() as any,
-        maxAttendees: formData.maxAttendees ? parseInt(formData.maxAttendees) : undefined,
         imageUrl: formData.imageUrl.trim() || undefined,
+        startDateTime: startDateTimeISO,
+        endDateTime: endDateTimeISO,
+        locationType: formData.locationType,
+        venue: formData.locationType === 'ONSITE' ? formData.location.trim() : undefined,
+        virtualEventLink: formData.locationType === 'VIRTUAL' ? formData.location.trim() : undefined,
+        registrationDeadline: registrationDeadlineISO,
+        foodAndDrinksProvided: formData.foodAndDrinksProvided,
+        maxAttendees: formData.maxAttendees ? parseInt(formData.maxAttendees) : undefined,
+        
+        // Legacy fields for backward compatibility
+        date: startDateTimeISO,
+        location: formData.locationType === 'ONSITE' ? formData.location.trim() : formData.location.trim(),
         foodAndDrinks: {
           foodProvided: formData.foodProvided,
           drinksProvided: formData.drinksProvided
-        }
+        },
       });
 
       setSuccess(true);
@@ -110,13 +177,16 @@ const EventCreationModal: React.FC<{
         setSuccess(false);
         setFormData({
           title: '',
+          type: 'WORKSHOP',
           description: '',
-          location: '',
-          type: 'workshop',
+          imageUrl: '',
           date: '',
           time: '',
+          locationType: 'ONSITE',
+          foodAndDrinksProvided: false,
           maxAttendees: '',
-          imageUrl: '',
+          // Legacy fields for backward compatibility
+          location: '',
           foodProvided: false,
           drinksProvided: false
         });
@@ -207,10 +277,16 @@ const EventCreationModal: React.FC<{
                   className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 >
-                  <option value="workshop">Workshop</option>
-                  <option value="networking">Networking</option>
-                  <option value="hackathon">Hackathon</option>
-                  <option value="seminar">Seminar</option>
+                  {/*
+                    Backend expects the exact enum strings defined in ExtendedEventType
+                    (WORKSHOP, HACKATHON, NETWORKING, SEMINAR, RECRUITMENT_DRIVE).
+                    Using the correct case here prevents 400 validation errors.
+                  */}
+                  <option value="WORKSHOP">Workshop</option>
+                  <option value="NETWORKING">Networking</option>
+                  <option value="HACKATHON">Hackathon</option>
+                  <option value="SEMINAR">Seminar</option>
+                  <option value="RECRUITMENT_DRIVE">Recruitment Drive</option>
                 </select>
               </div>
 
@@ -388,6 +464,8 @@ const EventsPage: React.FC = () => {
   const [userRegisteredEvents, setUserRegisteredEvents] = useState<EventRegistration[]>([]);
   const [isLoadingStats, setIsLoadingStats] = useState(false);
   const [registrationLoading, setRegistrationLoading] = useState<{ [eventId: string]: boolean }>({});
+  const [registrationModalEventId, setRegistrationModalEventId] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   // Fetch events and stats on component mount
   useEffect(() => {
@@ -428,7 +506,7 @@ const EventsPage: React.FC = () => {
     fetchData();
   }, [user]);
 
-  const handleEventRegistration = async (eventId: string) => {
+  const handleEventRegistration = async (eventId: string, data: any) => {
     if (!isAuthenticated) {
       requireAuth('register for this event', 'Events');
       return;
@@ -448,7 +526,14 @@ const EventsPage: React.FC = () => {
     setError(null);
 
     try {
-      await registerForEvent(eventId);
+      const formatted: any = {
+        attendeeName: data.attendeeName,
+        contactNumber: data.contactNumber,
+        dietaryRestrictions: data.dietaryRestrictions ? data.dietaryRestrictions.split(',').map((d:string)=>d.trim()) : undefined,
+        emergencyContact: data.emergencyContact,
+        notes: data.notes,
+      };
+      await registerForEvent(eventId, formatted);
       
       // Update local state
       const registeredEvent = events.find(e => e.id === eventId);
@@ -476,6 +561,20 @@ const EventsPage: React.FC = () => {
     } finally {
       setRegistrationLoading(prev => ({ ...prev, [eventId]: false }));
     }
+  };
+
+  const openRegistrationModal = (eventId: string) => {
+    if (!isAuthenticated) {
+      requireAuth('register for this event', 'Events');
+      return;
+    }
+    setRegistrationModalEventId(eventId);
+  };
+
+  const handleRegistrationSubmit = async (data: any) => {
+    if (!registrationModalEventId) return;
+    await handleEventRegistration(registrationModalEventId, data);
+    setRegistrationModalEventId(null);
   };
 
   const filteredEvents = events.filter(event => {
@@ -508,7 +607,7 @@ const EventsPage: React.FC = () => {
       case 'my-events':
         return user ? (event.organizerId === user.id) : false;
       case 'joined':
-        return userRegisteredEvents.some(regEvent => regEvent.event.id === event.id);
+        return userRegisteredEvents.some(regEvent => regEvent.event && regEvent.event.id === event.id);
       default:
         return true;
     }
@@ -857,21 +956,31 @@ const EventsPage: React.FC = () => {
 
                   {/* Register/Join Button - Fixed at bottom */}
                   <div className="mt-auto pt-4">
-                    {attendancePercentage >= 100 ? (
+                    {event.registrationDeadline && new Date(event.registrationDeadline) < new Date() ? (
+                      <Button variant="outline" className="w-full" disabled>
+                        Registration Closed
+                      </Button>
+                    ) : attendancePercentage >= 100 ? (
                       <Button variant="outline" className="w-full" disabled>
                         Event Full
                       </Button>
                     ) : user?.role === 'COMPANY' || user?.role === 'PROFESSIONAL' ? (
                       event.organizerId === user.id ? (
-                        <Button variant="outline" className="w-full">
-                          Manage Event
-                        </Button>
+                        <div className="flex flex-col space-y-2">
+                          <Button variant="outline" className="w-full" onClick={() => navigate(`/events/${event.id}`)}>
+                            View Attendees
+                          </Button>
+                          <Button className="w-full flex items-center justify-center space-x-2" onClick={() => navigate(`/events/${event.id}/manage`)}>
+                            <Settings className="h-4 w-4" />
+                            <span>Manage Event</span>
+                          </Button>
+                        </div>
                       ) : (
                         <Button variant="outline" className="w-full" disabled>
-                          Organizers Cannot Register
+                          Organizers Only
                         </Button>
                       )
-                    ) : userRegisteredEvents.some(regEvent => regEvent.event.id === event.id) ? (
+                    ) : userRegisteredEvents.some(regEvent => regEvent.event && regEvent.event.id === event.id) ? (
                       <Button variant="outline" className="w-full" disabled>
                         <CheckCircle className="h-4 w-4 mr-2" />
                         Registered
@@ -879,7 +988,7 @@ const EventsPage: React.FC = () => {
                     ) : (
                       <Button 
                         className="w-full"
-                        onClick={() => handleEventRegistration(event.id)}
+                        onClick={() => openRegistrationModal(event.id)}
                         disabled={registrationLoading[event.id] || !user}
                       >
                         {registrationLoading[event.id] ? (
@@ -939,6 +1048,14 @@ const EventsPage: React.FC = () => {
           setEvents(prev => [newEvent, ...prev]);
           incrementEventCount();
         }}
+      />
+
+      {/* Event Registration Modal */}
+      <EventRegistrationModal
+        isOpen={!!registrationModalEventId}
+        onClose={() => setRegistrationModalEventId(null)}
+        onSubmit={handleRegistrationSubmit}
+        currentUser={user || null}
       />
 
       {/* Authentication Modal */}

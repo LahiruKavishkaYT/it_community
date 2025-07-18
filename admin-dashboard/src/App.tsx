@@ -10,6 +10,7 @@ import Users from "./pages/Users";
 import Projects from "./pages/Projects";
 import Events from "./pages/Events";
 import Jobs from "./pages/Jobs";
+import Suggestions from "./pages/Suggestions";
 import Analytics from "./pages/Analytics";
 import AdminSettings from "./pages/AdminSettings";
 import SystemSettings from "./pages/SystemSettings";
@@ -51,6 +52,7 @@ const App = () => (
                 <Route path="/projects" element={<Projects />} />
                 <Route path="/events" element={<Events />} />
                 <Route path="/jobs" element={<Jobs />} />
+                <Route path="/suggestions" element={<Suggestions />} />
                 <Route path="/analytics" element={<Analytics />} />
                 <Route path="/admin-settings" element={<AdminSettings />} />
                 <Route path="/system-settings" element={<SystemSettings />} />

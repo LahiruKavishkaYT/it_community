@@ -2,7 +2,7 @@ export type UserRole = 'STUDENT' | 'PROFESSIONAL' | 'COMPANY' | 'ADMIN';
 
 export type ProjectType = 'STUDENT_PROJECT' | 'PRACTICE_PROJECT';
 
-export type EventType = 'WORKSHOP' | 'NETWORKING' | 'HACKATHON' | 'SEMINAR';
+export type EventType = 'WORKSHOP' | 'NETWORKING' | 'HACKATHON' | 'SEMINAR' | 'RECRUITMENT_DRIVE';
 
 export type EventStatus = 'DRAFT' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED';
 
@@ -27,6 +27,11 @@ export interface User {
   skills?: string[];
   company?: string;
   location?: string;
+  
+  // OAuth fields
+  googleId?: string;
+  githubId?: string;
+  provider?: OAuthProvider;
 }
 
 export interface FoodAndDrinks {
@@ -151,17 +156,33 @@ export interface FoodAndDrinksReport {
 
 export interface CreateEventData {
   title: string;
-  description: string;
-  date: string;
-  location: string;
   type: EventType;
-  maxAttendees?: number;
+  description: string;
   imageUrl?: string;
   
-  // Food and drinks
+  // Enhanced date/time fields
+  startDateTime: string;
+  endDateTime?: string;
+  date?: string; // Legacy field for backward compatibility
+  
+  // Enhanced location fields
+  locationType: 'ONSITE' | 'VIRTUAL';
+  venue?: string;
+  virtualEventLink?: string;
+  location?: string; // Legacy field for backward compatibility
+  
+  // Registration deadline
+  registrationDeadline: string;
+  
+  // Food and drinks coordination
+  foodAndDrinksProvided?: boolean;
+  
+  maxAttendees?: number;
+  
+  // Food and drinks (legacy support)
   foodAndDrinks?: FoodAndDrinks;
   
-  // Registration settings
+  // Registration settings (legacy support)
   registrationSettings?: RegistrationSettings;
   
   // Additional details
@@ -176,6 +197,8 @@ export interface CreateEventData {
 }
 
 export interface EventRegistrationData {
+  attendeeName: string;
+  contactNumber: string;
   dietaryRestrictions?: string[];
   emergencyContact?: string;
   notes?: string;
@@ -264,6 +287,12 @@ export interface Job {
   // User-specific fields
   isBookmarked?: boolean;
   matchScore?: number;
+  
+  // Application status for current user
+  hasApplied?: boolean;
+  applicationStatus?: ApplicationStatus;
+  applicationId?: string;
+  appliedAt?: string;
   
   postedAt: string;
   updatedAt?: string;
@@ -498,4 +527,170 @@ export interface UserSettings {
   emailNotifications: boolean;
   profileSearchable: boolean;
   isProfilePublic: boolean;
+}
+
+// Suggestion System Types
+export type SuggestionType = 'improvement' | 'content' | 'feature' | 'bug' | 'other';
+
+export type SuggestionStatus = 'pending' | 'under_review' | 'approved' | 'implemented' | 'rejected';
+
+export type SuggestionPriority = 'low' | 'medium' | 'high' | 'critical';
+
+export interface Suggestion {
+  id: string;
+  type: SuggestionType;
+  title: string;
+  description: string;
+  careerPathId: string;
+  careerPathTitle: string;
+  author: string;
+  authorId: string;
+  authorAvatar?: string;
+  authorRole: UserRole;
+  createdAt: string;
+  updatedAt: string;
+  votes: number;
+  hasUserVoted: boolean;
+  userVoteType?: 'up' | 'down';
+  // Enhanced rating system
+  rating: {
+    averageRating: number;
+    totalRatings: number;
+    ratingDistribution: {
+      1: number;
+      2: number;
+      3: number;
+      4: number;
+      5: number;
+    };
+  };
+  userRating?: number;
+  status: SuggestionStatus;
+  priority: SuggestionPriority;
+  tags: string[];
+  adminResponse?: string;
+  adminNotes?: string;
+  commentsCount: number;
+  implementationDate?: string;
+  attachments?: string[];
+  feedback?: SuggestionFeedback[];
+}
+
+// Enhanced Feedback and Rating Types
+export type FeedbackCategory = 'relevance' | 'clarity' | 'impact' | 'feasibility' | 'overall';
+
+export interface SuggestionRating {
+  id: string;
+  suggestionId: string;
+  userId: string;
+  rating: number; // 1-5 stars
+  feedback?: string;
+  categories?: {
+    relevance: number;
+    clarity: number;
+    impact: number;
+    feasibility: number;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SuggestionFeedback {
+  id: string;
+  suggestionId: string;
+  author: string;
+  authorId: string;
+  authorRole: UserRole;
+  content: string;
+  category: FeedbackCategory;
+  rating?: number;
+  isConstructive: boolean;
+  isAdminFeedback: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RatingSummary {
+  averageRating: number;
+  totalRatings: number;
+  ratingDistribution: Record<number, number>;
+  categoryAverages: {
+    relevance: number;
+    clarity: number;
+    impact: number;
+    feasibility: number;
+  };
+  recentTrend: 'up' | 'down' | 'stable';
+}
+
+export interface SuggestionVote {
+  id: string;
+  suggestionId: string;
+  userId: string;
+  voteType: 'up' | 'down';
+  createdAt: string;
+}
+
+export interface SuggestionComment {
+  id: string;
+  suggestionId: string;
+  content: string;
+  author: string;
+  authorId: string;
+  authorAvatar?: string;
+  authorRole: UserRole;
+  createdAt: string;
+  isAdminResponse?: boolean;
+}
+
+export interface CreateSuggestionData {
+  type: SuggestionType;
+  title: string;
+  description: string;
+  careerPathId: string;
+  careerPathTitle: string;
+  priority: SuggestionPriority;
+  tags: string[];
+  attachments?: File[];
+}
+
+export interface SuggestionFilters {
+  type?: SuggestionType;
+  status?: SuggestionStatus;
+  priority?: SuggestionPriority;
+  careerPath?: string;
+  sortBy?: 'newest' | 'oldest' | 'most_voted' | 'least_voted';
+  search?: string;
+  tags?: string[];
+}
+
+export interface SuggestionStats {
+  totalSuggestions: number;
+  pendingSuggestions: number;
+  approvedSuggestions: number;
+  implementedSuggestions: number;
+  rejectedSuggestions: number;
+  suggestionsByType: Record<SuggestionType, number>;
+  suggestionsByCareerPath: Record<string, number>;
+  averageVotes: number;
+  topTags: Array<{ tag: string; count: number }>;
+}
+
+// OAuth Provider types
+export type OAuthProvider = 'google' | 'github';
+
+// OAuth User Profile
+export interface OAuthProfile {
+  provider: OAuthProvider;
+  providerId: string;
+  email: string;
+  name: string;
+  avatar?: string;
+}
+
+// OAuth Callback Response
+export interface OAuthCallbackData {
+  access_token: string;
+  refresh_token: string;
+  user: User;
 }

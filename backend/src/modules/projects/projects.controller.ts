@@ -223,6 +223,14 @@ export class ProjectsController {
     return this.projectsService.getUserFeedback(req.user.id);
   }
 
+  @Get('learning/org')
+  @ApiOperation({summary: 'Get learning projects from professionals and companies'})
+  @ApiQuery({name:'category',required:false,description:'Project category filter'})
+  @ApiOkResponse({description:'Learning projects retrieved'})
+  async getOrgLearningProjects(@Query('category') category?: string){
+    return this.projectsService.findLearningProjectsFromOrgAuthors(category);
+  }
+
   @Get(':id')
   @ApiOperation({ 
     summary: 'Get project by ID',

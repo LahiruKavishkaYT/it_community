@@ -3,15 +3,29 @@ import { User, UserRole } from '../../generated/prisma';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
-import * as bcrypt from 'bcryptjs';
+import * as bcrypt from 'bcrypt';
+import { NotificationService } from '../modules/notifications/notification.service';
+import { $Enums } from '../../generated/prisma';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private notificationService: NotificationService) {}
 
   async findByEmail(email: string): Promise<User | null> {
     return this.prisma.user.findUnique({
       where: { email },
+    });
+  }
+
+  async findByGoogleId(googleId: string): Promise<User | null> {
+    return this.prisma.user.findUnique({
+      where: { googleId },
+    });
+  }
+
+  async findByGithubId(githubId: string): Promise<User | null> {
+    return this.prisma.user.findUnique({
+      where: { githubId },
     });
   }
 
@@ -28,6 +42,9 @@ export class UsersService {
         skills: true,
         company: true,
         location: true,
+        googleId: true,
+        githubId: true,
+        provider: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -44,6 +61,28 @@ export class UsersService {
     password: string;
     name: string;
     role?: UserRole;
+    company?: string;
+    location?: string;
+    bio?: string;
+    skills?: string[];
+  }): Promise<User> {
+    return this.prisma.user.create({
+      data: userData,
+    });
+  }
+
+  async createOAuthUser(userData: {
+    email: string;
+    name: string;
+    role?: UserRole;
+    googleId?: string;
+    githubId?: string;
+    provider?: string;
+    avatar?: string;
+    company?: string;
+    location?: string;
+    bio?: string;
+    skills?: string[];
   }): Promise<User> {
     return this.prisma.user.create({
       data: userData,
@@ -51,22 +90,30 @@ export class UsersService {
   }
 
   async update(id: string, updateData: any): Promise<User> {
-    return this.prisma.user.update({
+    const before = await this.prisma.user.findUnique({ where: { id } });
+    const updated = await this.prisma.user.update({
       where: { id },
       data: updateData,
     });
+
+    // Notify on role change
+    if (before && updateData.role && updateData.role !== before.role) {
+      await this.notificationService.createNotification({
+        userId: id,
+        type: $Enums.NotificationType.SYSTEM_MESSAGE,
+        title: 'Account role updated',
+        message: `Your role has been updated to ${updateData.role}.`,
+        priority: $Enums.NotificationPriority.MEDIUM,
+      });
+    }
+
+    return updated;
   }
 
   async updateProfile(id: string, updateProfileDto: UpdateProfileDto): Promise<Omit<User, 'password'>> {
-    const user = await this.prisma.user.findUnique({
-      where: { id },
-    });
+    const beforeCompletion = await this.getProfileCompletion(id);
 
-    if (!user) {
-      throw new NotFoundException(`User with ID ${id} not found`);
-    }
-
-    return this.prisma.user.update({
+    const updatedUser = await this.prisma.user.update({
       where: { id },
       data: updateProfileDto,
       select: {
@@ -79,10 +126,27 @@ export class UsersService {
         skills: true,
         company: true,
         location: true,
+        googleId: true,
+        githubId: true,
+        provider: true,
         createdAt: true,
         updatedAt: true,
       },
     });
+
+    const afterCompletion = await this.getProfileCompletion(id);
+
+    if (beforeCompletion.completionPercentage < 100 && afterCompletion.completionPercentage === 100) {
+      await this.notificationService.createNotification({
+        userId: id,
+        type: $Enums.NotificationType.SYSTEM_MESSAGE,
+        title: 'Profile complete! 🎉',
+        message: 'Nice work – your profile is now 100% complete and will appear higher in talent searches.',
+        priority: $Enums.NotificationPriority.LOW,
+      });
+    }
+
+    return updatedUser;
   }
 
   async getUserStats(userId: string) {
@@ -184,16 +248,18 @@ export class UsersService {
       }),
 
       // Recent events created (for professionals/companies)
-      user.role !== 'STUDENT' ? this.prisma.event.findMany({
-        where: { organizerId: userId },
-        select: {
-          id: true,
-          title: true,
-          createdAt: true,
-        },
-        orderBy: { createdAt: 'desc' },
-        take: limit,
-      }) : Promise.resolve([]),
+      user.role !== 'STUDENT'
+        ? this.prisma.event.findMany({
+            where: { organizerId: userId },
+            select: {
+              id: true,
+              title: true,
+              createdAt: true,
+            },
+            orderBy: { createdAt: 'desc' },
+            take: limit,
+          })
+        : Promise.resolve<Array<{ id: string; title: string; createdAt: Date }>>([]),
 
       // Recent event registrations
       this.prisma.eventAttendee.findMany({
@@ -351,4 +417,4 @@ export class UsersService {
 
     return { message: 'Settings updated successfully' };
   }
-} 
+}

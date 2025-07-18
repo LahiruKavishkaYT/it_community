@@ -140,71 +140,150 @@ export class EventsController {
     return { events };
   }
 
-  @Get(':id/food-drinks-report')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.PROFESSIONAL, UserRole.COMPANY, UserRole.ADMIN)
-  async getFoodAndDrinksReport(@Param('id') id: string, @Request() req: any) {
-    return this.eventsService.getFoodAndDrinksReport(id, req.user.id);
-  }
-
   @Get('stats/overview')
   async getEventStats() {
     return this.eventsService.getEventStats();
   }
 
-  @Post(':eventId/attendees/bulk-approve')
+  @Get('stats/analytics')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.PROFESSIONAL, UserRole.COMPANY, UserRole.ADMIN)
-  async bulkApproveAttendees(
-    @Param('eventId') eventId: string,
-    @Body() data: { attendeeIds: string[] },
-    @Request() req: any
+  @Roles(UserRole.ADMIN, UserRole.PROFESSIONAL, UserRole.COMPANY)
+  async getEventAnalytics(
+    @Query('period') period?: '7d' | '30d' | '90d' | '1y',
+    @Query('organizerId') organizerId?: string,
+    @Request() req?: any
   ) {
-    const results = await Promise.all(
-      data.attendeeIds.map(attendeeId =>
-        this.eventsService.manageAttendeeStatus(
-          eventId,
-          attendeeId,
-          AttendeeStatus.APPROVED,
-          req.user.id
-        ).catch(error => ({ error: error.message, attendeeId }))
-      )
-    );
-
-    const successful = results.filter(r => !('error' in r));
-    const failed = results.filter(r => 'error' in r);
-
-    return {
-      message: `Bulk approval completed`,
-      successful: successful.length,
-      failed: failed.length,
-      errors: failed
-    };
+    return this.eventsService.getEventAnalytics(period, organizerId || req?.user?.id);
   }
 
-  @Get(':id/attendees/export')
+  @Get('stats/trends')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.PROFESSIONAL, UserRole.COMPANY)
+  async getEventTrends(
+    @Query('period') period?: '7d' | '30d' | '90d' | '1y',
+    @Query('groupBy') groupBy?: 'day' | 'week' | 'month',
+    @Query('organizerId') organizerId?: string,
+    @Request() req?: any
+  ) {
+    return this.eventsService.getEventTrends(period, groupBy, organizerId || req?.user?.id);
+  }
+
+  @Post('bulk/register')
+  @UseGuards(JwtAuthGuard)
+  async bulkRegisterForEvents(
+    @Body() body: { eventIds: string[]; registrationData?: any },
+    @Request() req: any
+  ) {
+    return this.eventsService.bulkRegisterForEvents(body.eventIds, req.user.id, body.registrationData);
+  }
+
+  @Post('bulk/status')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.PROFESSIONAL, UserRole.COMPANY, UserRole.ADMIN)
-  async exportAttendeeList(@Param('id') id: string, @Request() req: any) {
-    const attendees = await this.eventsService.getEventAttendees(id, req.user.id);
-    
-    const csvData = attendees.map(attendee => ({
-      name: attendee.name,
-      email: attendee.email,
-      role: attendee.role,
-      company: attendee.company || '',
-      status: attendee.status,
-      registeredAt: attendee.registeredAt,
-      checkedIn: attendee.checkedIn ? 'Yes' : 'No',
-      dietaryRestrictions: attendee.dietaryRestrictions?.join(', ') || '',
-      emergencyContact: attendee.emergencyContact || ''
-    }));
+  async bulkUpdateEventStatus(
+    @Body() body: { eventIds: string[]; status: string },
+    @Request() req: any
+  ) {
+    return this.eventsService.bulkUpdateEventStatus(body.eventIds, body.status, req.user.id);
+  }
 
-    return { 
-      attendees: csvData,
-      totalCount: csvData.length,
-      exportedAt: new Date().toISOString()
-    };
+  @Get('search/advanced')
+  async advancedSearch(
+    @Query('q') query?: string,
+    @Query('type') type?: string,
+    @Query('status') status?: string,
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
+    @Query('location') location?: string,
+    @Query('organizer') organizer?: string,
+    @Query('hasFood') hasFood?: boolean,
+    @Query('hasDrinks') hasDrinks?: boolean,
+    @Query('isVirtual') isVirtual?: boolean,
+    @Query('maxFee') maxFee?: number,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number
+  ) {
+    return this.eventsService.advancedSearch({
+      query,
+      type,
+      status,
+      dateFrom,
+      dateTo,
+      location,
+      organizer,
+      hasFood,
+      hasDrinks,
+      isVirtual,
+      maxFee,
+      page: page || 1,
+      limit: limit || 10
+    });
+  }
+
+  @Get('recommendations')
+  @UseGuards(JwtAuthGuard)
+  async getEventRecommendations(
+    @Request() req: any,
+    @Query('limit') limit?: number
+  ) {
+    return this.eventsService.getEventRecommendations(req.user.id, limit || 5);
+  }
+
+  @Post(':id/check-out')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.PROFESSIONAL, UserRole.COMPANY, UserRole.ADMIN)
+  async checkOutAttendee(
+    @Param('id') eventId: string,
+    @Body() body: { attendeeId: string },
+    @Request() req: any
+  ) {
+    return this.eventsService.checkOutAttendee(eventId, body.attendeeId, req.user.id);
+  }
+
+  @Get(':id/attendance-report')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.PROFESSIONAL, UserRole.COMPANY, UserRole.ADMIN)
+  async getAttendanceReport(
+    @Param('id') eventId: string,
+    @Request() req: any
+  ) {
+    return this.eventsService.getAttendanceReport(eventId, req.user.id);
+  }
+
+  @Get(':id/food-drinks-report')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.PROFESSIONAL, UserRole.COMPANY, UserRole.ADMIN)
+  async getFoodAndDrinksReport(
+    @Param('id') eventId: string,
+    @Request() req: any
+  ) {
+    return this.eventsService.getFoodAndDrinksReport(eventId, req.user.id);
+  }
+
+  @Post(':id/send-notifications')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.PROFESSIONAL, UserRole.COMPANY, UserRole.ADMIN)
+  async sendEventNotifications(
+    @Param('id') eventId: string,
+    @Body() body: { 
+      message: string; 
+      type: 'all' | 'approved' | 'pending' | 'waitlist';
+      includeOrganizer?: boolean;
+    },
+    @Request() req: any
+  ) {
+    return this.eventsService.sendEventNotifications(eventId, body, req.user.id);
+  }
+
+  @Get(':id/export-attendees')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.PROFESSIONAL, UserRole.COMPANY, UserRole.ADMIN)
+  async exportAttendees(
+    @Param('id') eventId: string,
+    @Query('format') format: 'csv' | 'json' = 'csv',
+    @Request() req: any
+  ) {
+    return this.eventsService.exportAttendees(eventId, format, req.user.id);
   }
 
   @Get(':id/dashboard')

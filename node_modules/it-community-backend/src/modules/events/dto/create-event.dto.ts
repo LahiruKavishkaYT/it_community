@@ -1,6 +1,20 @@
-import { IsString, IsNotEmpty, IsDateString, IsEnum, IsOptional, IsInt, IsUrl, IsBoolean, Min, IsArray, ValidateNested, IsNumber } from 'class-validator';
+import { IsString, IsNotEmpty, IsDateString, IsEnum, IsOptional, IsInt, IsUrl, IsBoolean, Min, IsArray, ValidateNested, IsNumber, ValidateIf } from 'class-validator';
 import { Type } from 'class-transformer';
 import { EventType } from '../../../../generated/prisma';
+
+// Update EventType enum to include RECRUITMENT_DRIVE
+export enum ExtendedEventType {
+  WORKSHOP = 'WORKSHOP',
+  HACKATHON = 'HACKATHON', 
+  NETWORKING = 'NETWORKING',
+  SEMINAR = 'SEMINAR',
+  RECRUITMENT_DRIVE = 'RECRUITMENT_DRIVE'
+}
+
+export enum LocationType {
+  ONSITE = 'ONSITE',
+  VIRTUAL = 'VIRTUAL'
+}
 
 class FoodAndDrinksDto {
   @IsBoolean()
@@ -27,53 +41,63 @@ class FoodAndDrinksDto {
   alcoholicBeverages?: boolean;
 }
 
-class RegistrationSettingsDto {
-  @IsOptional()
-  @IsBoolean()
-  requireApproval?: boolean;
-
-  @IsOptional()
-  @IsDateString()
-  registrationDeadline?: string;
-
-  @IsOptional()
-  @IsString()
-  registrationInstructions?: string;
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  requiredFields?: string[];
-}
-
 export class CreateEventDto {
   @IsString()
   @IsNotEmpty()
   title: string;
 
+  @IsEnum(ExtendedEventType)
+  type: ExtendedEventType;
+
   @IsString()
   @IsNotEmpty()
   description: string;
 
-  @IsDateString()
-  date: string;
+  @IsOptional()
+  @IsUrl()
+  imageUrl?: string;
 
+  @IsDateString()
+  startDateTime: string;
+
+  @IsDateString()
+  endDateTime: string;
+
+  @IsEnum(LocationType)
+  locationType: LocationType;
+
+  @ValidateIf(o => o.locationType === LocationType.ONSITE)
   @IsString()
   @IsNotEmpty()
-  location: string;
+  venue?: string;
 
-  @IsEnum(EventType)
-  type: EventType;
+  @ValidateIf(o => o.locationType === LocationType.VIRTUAL)
+  @IsUrl()
+  @IsNotEmpty()
+  virtualEventLink?: string;
+
+  @IsDateString()
+  registrationDeadline: string;
+
+  @IsOptional()
+  @IsBoolean()
+  foodAndDrinksProvided?: boolean;
+
+  // Legacy field for backward compatibility
+  @IsOptional()
+  @IsString()
+  location?: string;
+
+  // Legacy field for backward compatibility
+  @IsOptional()
+  @IsDateString()
+  date?: string;
 
   @IsOptional()
   @IsInt()
   @Min(1)
   @Type(() => Number)
   maxAttendees?: number;
-
-  @IsOptional()
-  @IsUrl()
-  imageUrl?: string;
 
   // Enhanced food and drinks coordination
   @IsOptional()
@@ -89,12 +113,6 @@ export class CreateEventDto {
   @IsOptional()
   @IsBoolean()
   drinksProvided?: boolean;
-
-  // Enhanced registration settings
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => RegistrationSettingsDto)
-  registrationSettings?: RegistrationSettingsDto;
 
   // Additional event details
   @IsOptional()
@@ -132,4 +150,18 @@ export class CreateEventDto {
   @IsOptional()
   @IsString()
   virtualMeetingLink?: string;
+
+  // Registration settings
+  @IsOptional()
+  @IsBoolean()
+  requireApproval?: boolean;
+
+  @IsOptional()
+  @IsString()
+  registrationInstructions?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  requiredFields?: string[];
 } 

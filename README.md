@@ -20,32 +20,45 @@ IT Community Platform is a full-stack SaaS solution designed to bridge the gap b
 - **🔄 Career Development** - Guided learning paths and skill roadmaps
 - **🤝 Community Networking** - Connect like-minded professionals and students
 - **📊 Analytics Dashboard** - Comprehensive insights for all user types
+- **🔐 OAuth Authentication** - Google and GitHub login integration
+- **👥 Role-Based Access** - Multi-role system with granular permissions
 
 ## 🏗️ Technical Architecture
 
 ### Backend (NestJS)
 - **Framework**: NestJS with TypeScript
 - **Database**: PostgreSQL with Prisma ORM
-- **Authentication**: JWT with Passport.js
+- **Authentication**: JWT with Passport.js + OAuth (Google, GitHub)
 - **Architecture**: Modular monolith with RBAC
-- **API**: RESTful endpoints with validation
+- **API**: RESTful endpoints with OpenAPI/Swagger documentation
+- **Security**: bcrypt, CORS, rate limiting, input validation
 
 ### Frontend (React)
 - **Framework**: React 18 with TypeScript
 - **Build Tool**: Vite for fast development
 - **Styling**: Tailwind CSS for modern UI
-- **Routing**: React Router DOM
+- **Routing**: React Router DOM v6
 - **State**: Context API for state management
+- **HTTP Client**: Axios with interceptors
 
 ### Database Schema
 ```
 Users (Students, Professionals, Companies, Admins)
-├── Projects (Portfolio showcase)
+├── OAuth Integration (Google ID, GitHub ID, provider)
+├── Projects (Portfolio showcase with approval workflow)
 ├── Jobs (Job postings and applications)
-├── Events (Community events)
+├── Events (Community events with registration)
 ├── Activities (User activity tracking)
 └── Feedback (Project reviews and ratings)
 ```
+
+## 📚 Documentation
+
+- 📘 **[Complete Project Documentation](./PROJECT_DOCUMENTATION.md)** - Comprehensive technical documentation
+- 🔐 **[OAuth Setup Guide](./docs/OAUTH_SETUP_GUIDE.md)** - Step-by-step OAuth configuration
+- 🏗️ **[Backend Architecture](./docs/BACKEND_ARCHITECTURE_DESIGN.md)** - Detailed backend design
+- 👥 **[Admin Dashboard Guide](./docs/ADMIN_DASHBOARD_BACKEND_SUMMARY.md)** - Admin features overview
+- 🎯 **[API Documentation](http://localhost:3001/api/docs)** - Interactive Swagger UI (when running)
 
 ## 🚀 Quick Start
 
@@ -67,11 +80,19 @@ Create `.env` files:
 
 **Backend** (`backend/.env`):
 ```env
-DATABASE_URL="postgresql://postgres:password@localhost:5432/it_community_db?schema=public"
-JWT_SECRET="your-super-secret-jwt-key-change-this-in-production"
+DATABASE_URL="postgresql://postgres:Lamba123@localhost:5432/it_community?schema=public"
+JWT_SECRET="your-super-secret-jwt-key-change-this-in-production-it-community-2024"
 JWT_EXPIRATION="7d"
-PORT=3000
+PORT=3001
 NODE_ENV="development"
+FRONTEND_URL="http://localhost:5173"
+ADMIN_DASHBOARD_URL="http://localhost:5174"
+
+# OAuth Configuration (Optional - for OAuth authentication)
+GOOGLE_CLIENT_ID="your-google-client-id"
+GOOGLE_CLIENT_SECRET="your-google-client-secret"
+GITHUB_CLIENT_ID="your-github-client-id"
+GITHUB_CLIENT_SECRET="your-github-client-secret"
 ```
 
 **Frontend** (`frontend/.env`):
@@ -82,25 +103,43 @@ VITE_APP_NAME="IT Community Platform"
 
 ### 3. Database Setup
 ```bash
-# Create database
-createdb it_community_db
+# Make sure PostgreSQL is running and the database 'it_community' exists
+# Then run the setup script (Windows PowerShell):
+.\setup-database.ps1
 
-# Run migrations
-npm run backend:db:migrate
-
-# Generate Prisma client
-npm run backend:db:generate
+# Or run commands manually:
+cd backend
+npx prisma generate
+npx prisma db push
+node scripts/seed-users.js
 ```
 
 ### 4. Start Development Servers
 ```bash
-# Start both frontend and backend
-npm run start:dev
+# Start backend server
+cd backend
+npm run start:dev       # Backend on :3001
 
-# Or start individually
-npm run backend:dev    # Backend on :3000
-npm run frontend:dev   # Frontend on :5173
+# Start community frontend (in new terminal)
+cd frontend
+npm run dev             # Frontend on :5173
+
+# Start admin dashboard (in new terminal)
+cd admin-dashboard
+npm run dev             # Admin Dashboard on :5174
 ```
+
+### 5. Access the Applications
+- **Community Platform**: http://localhost:5173
+- **Admin Dashboard**: http://localhost:5174
+- **API Documentation**: http://localhost:3001/api/docs
+
+### 6. Admin Dashboard Access
+**Default Admin Credentials:**
+- **Email**: `admin@itcommunity.com`
+- **Password**: `admin123`
+
+**Note**: Please change the default admin password in production!
 
 ## 📁 Project Structure
 
@@ -207,7 +246,9 @@ npm run test               # Component tests
 NODE_ENV=production
 DATABASE_URL="your-production-database-url"
 JWT_SECRET="your-production-jwt-secret"
-PORT=3000
+PORT=3001
+FRONTEND_URL="https://your-frontend-domain.com"
+ADMIN_DASHBOARD_URL="https://your-admin-domain.com"
 ```
 
 **Frontend**:

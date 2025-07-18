@@ -3,14 +3,16 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreateJobDto } from './dto/create-job.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
 import { CreateJobApplicationDto, UpdateApplicationStatusDto, BulkUpdateApplicationsDto } from './dto/job-application.dto';
-import { Job, JobApplication, JobBookmark, User, JobType, ExperienceLevel, ApplicationStatus } from '../../../generated/prisma';
+import { Job, JobApplication, JobBookmark, User, JobType, ExperienceLevel, ApplicationStatus, $Enums } from '../../../generated/prisma';
 import { ActivitiesService } from '../activities/activities.service';
+import { NotificationService } from '../notifications/notification.service';
 
 @Injectable()
 export class JobsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly activitiesService: ActivitiesService
+    private readonly activitiesService: ActivitiesService,
+    private readonly notificationService: NotificationService
   ) {}
 
   async findAll(filters?: {
@@ -23,7 +25,7 @@ export class JobsService {
     salaryMax?: number;
     featured?: boolean;
     search?: string;
-  }): Promise<Job[]> {
+  }, userId?: string): Promise<Job[]> {
     const where: any = {
       status: 'PUBLISHED',
     };
@@ -72,14 +74,24 @@ export class JobsService {
             location: true,
           },
         },
-        applicants: {
+        applicants: userId ? {
+          where: { applicantId: userId },
           select: {
             id: true,
-            applicantId: true,
+            status: true,
+            appliedAt: true,
+          },
+        } : {
+          select: {
+            id: true,
             status: true,
             appliedAt: true,
           },
         },
+        bookmarks: userId ? {
+          where: { userId },
+          select: { id: true },
+        } : false,
         _count: {
           select: {
             applicants: true,
@@ -95,12 +107,21 @@ export class JobsService {
     });
 
     // Transform the data to match frontend expectations
-    return jobs.map(job => ({
-      ...job,
-      company: job.company.name,
-      applicationsCount: job._count.applicants,
-      bookmarksCount: job._count.bookmarks,
-    }));
+    return jobs.map(job => {
+      const userApplication = userId && job.applicants.length > 0 ? job.applicants[0] : null;
+      
+      return {
+        ...job,
+        company: job.company.name,
+        applicationsCount: job._count.applicants,
+        bookmarksCount: job._count.bookmarks,
+        isBookmarked: userId ? job.bookmarks.length > 0 : false,
+        hasApplied: !!userApplication,
+        applicationStatus: userApplication?.status,
+        applicationId: userApplication?.id,
+        appliedAt: userApplication?.appliedAt?.toISOString(),
+      };
+    });
   }
 
   async findOne(id: string, userId?: string): Promise<Job> {
@@ -221,6 +242,40 @@ export class JobsService {
       job.title,
       job.id
     );
+
+    // Send informational notification to admins about new job posting
+    const admins = await this.prisma.user.findMany({
+      where: { role: 'ADMIN' },
+      select: { id: true }
+    });
+
+    for (const admin of admins) {
+      try {
+        await this.notificationService.createNotification({
+          userId: admin.id,
+          type: $Enums.NotificationType.JOB_NOTIFICATION,
+          title: 'New Job Posted',
+          message: `${job.company.name} posted "${job.title}" (${job.type.toLowerCase()}) - ${job.experienceLevel.toLowerCase().replace('_', ' ')}`,
+          priority: $Enums.NotificationPriority.LOW,
+          itemId: job.id,
+          itemType: 'job',
+          metadata: {
+            jobTitle: job.title,
+            jobType: job.type,
+            experienceLevel: job.experienceLevel,
+            companyName: job.company.name,
+            companyId: job.companyId,
+            location: job.location,
+            remote: job.remote,
+            salaryRange: job.salaryMin && job.salaryMax ? `${job.salaryMin}-${job.salaryMax} ${job.salaryCurrency}` : null,
+            postedAt: job.postedAt,
+            isPublic: true // Jobs are published immediately
+          }
+        });
+      } catch (error) {
+        console.error(`Failed to notify admin ${admin.id}:`, error);
+      }
+    }
 
     return {
       ...job,
@@ -380,6 +435,42 @@ export class JobsService {
       jobId
     );
 
+    // Send confirmation notification to applicant
+    await this.notificationService.createNotification({
+      userId: userId,
+      type: $Enums.NotificationType.APPLICATION_UPDATE,
+      title: 'Application Submitted Successfully! 🎉',
+      message: `Your application for "${job.title}" at ${job.company.name} has been submitted and is under review.`,
+      priority: $Enums.NotificationPriority.MEDIUM,
+      itemId: jobId,
+      itemType: 'job',
+      metadata: {
+        jobTitle: job.title,
+        companyName: job.company.name,
+        applicationStatus: 'PENDING',
+        applicationId: application.id,
+        skillsMatchScore: application.skillsMatchScore
+      }
+    });
+
+    // Notify company/recruiter about new application
+    await this.notificationService.createNotification({
+      userId: job.companyId,
+      type: $Enums.NotificationType.JOB_NOTIFICATION,
+      title: 'New Job Application Received',
+      message: `${application.applicant.name} applied for "${job.title}"${application.skillsMatchScore ? ` (${Math.round(application.skillsMatchScore)}% skills match)` : ''}`,
+      priority: $Enums.NotificationPriority.LOW,
+      itemId: jobId,
+      itemType: 'job',
+      metadata: {
+        jobTitle: job.title,
+        applicantName: application.applicant.name,
+        applicantId: application.applicant.id,
+        skillsMatchScore: application.skillsMatchScore,
+        applicationId: application.id
+      }
+    });
+
     return application;
   }
 
@@ -465,7 +556,7 @@ export class JobsService {
         break;
     }
 
-    return this.prisma.jobApplication.update({
+    const updatedApplication = await this.prisma.jobApplication.update({
       where: { id: applicationId },
       data: statusUpdateData,
       include: {
@@ -487,6 +578,83 @@ export class JobsService {
         },
       },
     });
+
+    // Send comprehensive notification to applicant based on status
+    let notificationTitle = '';
+    let notificationMessage = '';
+    let priority: $Enums.NotificationPriority = $Enums.NotificationPriority.MEDIUM;
+
+    switch (updateData.status) {
+      case 'REVIEWING':
+        notificationTitle = `Application Under Review - ${updatedApplication.job.title}`;
+        notificationMessage = 'Great! Your application is now being reviewed by our team.';
+        priority = $Enums.NotificationPriority.MEDIUM;
+        break;
+
+      case 'SHORTLISTED':
+        notificationTitle = `You've Been Shortlisted! 🎉`;
+        notificationMessage = `Congratulations! You're shortlisted for "${updatedApplication.job.title}". The recruiter will contact you soon.`;
+        priority = $Enums.NotificationPriority.HIGH;
+        break;
+
+      case 'INTERVIEWED':
+        notificationTitle = `Interview Scheduled - ${updatedApplication.job.title}`;
+        notificationMessage = 'Your application has progressed to the interview stage. Please check your email for scheduling details.';
+        priority = $Enums.NotificationPriority.HIGH;
+        break;
+
+      case 'OFFERED':
+        notificationTitle = `Job Offer Received! 🎉`;
+        notificationMessage = `Congratulations! You've received an offer for "${updatedApplication.job.title}". Please check your email for details.`;
+        priority = $Enums.NotificationPriority.HIGH;
+        break;
+
+      case 'ACCEPTED':
+        notificationTitle = `Offer Accepted - ${updatedApplication.job.title}`;
+        notificationMessage = 'Your offer acceptance has been confirmed. Welcome to the team!';
+        priority = $Enums.NotificationPriority.HIGH;
+        break;
+
+      case 'REJECTED':
+        notificationTitle = `Application Update - ${updatedApplication.job.title}`;
+        notificationMessage = updateData.rejectionReason
+          ? `Unfortunately, your application was not selected. Feedback: ${updateData.rejectionReason}`
+          : 'Unfortunately, your application was not selected for this position.';
+        priority = $Enums.NotificationPriority.MEDIUM;
+        break;
+
+      case 'WITHDRAWN':
+        notificationTitle = `Application Withdrawn - ${updatedApplication.job.title}`;
+        notificationMessage = 'Your application has been withdrawn as requested.';
+        priority = $Enums.NotificationPriority.LOW;
+        break;
+
+      default:
+        notificationTitle = `Application Update - ${updatedApplication.job.title}`;
+        notificationMessage = `Your application status was updated to: ${updateData.status}`;
+        priority = $Enums.NotificationPriority.MEDIUM;
+    }
+
+    // Send notification to applicant
+    await this.notificationService.createNotification({
+      userId: updatedApplication.applicant.id,
+      type: $Enums.NotificationType.APPLICATION_UPDATE,
+      title: notificationTitle,
+      message: notificationMessage,
+      itemId: updatedApplication.job.id,
+      itemType: 'job',
+      priority: priority,
+      metadata: {
+        jobTitle: updatedApplication.job.title,
+        newStatus: updateData.status,
+        recruiterNotes: updateData.recruiterNotes,
+        rejectionReason: updateData.rejectionReason,
+        rating: updateData.rating,
+        applicationId: updatedApplication.id
+      }
+    });
+
+    return updatedApplication;
   }
 
   // Bulk application management
@@ -639,16 +807,53 @@ export class JobsService {
                 id: true,
                 name: true,
                 avatar: true,
-                location: true,
               },
             },
           },
         },
       },
-      orderBy: {
-        appliedAt: 'desc',
+      orderBy: { appliedAt: 'desc' },
+    });
+  }
+
+  async getApplicationDetails(applicationId: string, userId: string): Promise<JobApplication> {
+    const application = await this.prisma.jobApplication.findUnique({
+      where: { id: applicationId },
+      include: {
+        job: {
+          include: {
+            company: {
+              select: {
+                id: true,
+                name: true,
+                avatar: true,
+                location: true,
+              },
+            },
+          },
+        },
+        applicant: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            avatar: true,
+            role: true,
+          },
+        },
       },
     });
+
+    if (!application) {
+      throw new NotFoundException(`Application with ID ${applicationId} not found`);
+    }
+
+    // Check if user has permission to view this application
+    if (application.applicantId !== userId && application.job.companyId !== userId) {
+      throw new ForbiddenException('You do not have permission to view this application');
+    }
+
+    return application;
   }
 
   // Get company applications

@@ -3,12 +3,12 @@ import {
   UserActivity, ProfileCompletion, UserSettings, ProjectType, CreateEventData, EventRegistrationData, 
   EventAttendee, EventDashboard, FoodAndDrinksReport, AttendeeStatus, EventRegistration,
   JobFilters, JobAnalytics, JobApplication, JobBookmark, CreateJobData, CreateJobApplicationData, 
-  UpdateApplicationStatusData, ApplicationStatus
+  UpdateApplicationStatusData, ApplicationStatus, Suggestion, CreateSuggestionData, SuggestionStatus, SuggestionStats, SuggestionComment
 } from '../types';
-import { mockProjects, mockEvents, mockJobs, mockDashboardData } from '../data/mockData';
+import { mockProjects, mockEvents, mockJobs, mockDashboardData, mockFrontendLearningProjects, mockBackendLearningProjects, mockDevOpsLearningProjects } from '../data/mockData';
 
-// Base URL for all API calls
-const BASE_URL = 'http://localhost:3001';
+// Base URL for all API calls - configurable via environment variable
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 // Utility function to get JWT token from localStorage
 const getAuthToken = (): string | null => {
@@ -139,6 +139,84 @@ export const getProjectsForUserRole = async (): Promise<Project[]> => {
   });
 };
 
+export const getProjectsByCareerPath = async (careerPath: string): Promise<Project[]> => {
+  try {
+    // Map career path to relevant technologies for filtering
+    const techMapping: Record<string, string[]> = {
+      'frontend': ['HTML', 'CSS', 'JavaScript', 'React', 'Vue', 'Angular', 'TypeScript', 'Next.js', 'Tailwind'],
+      'backend': ['Node.js', 'Python', 'Java', 'Express', 'Spring', 'Django', 'Flask', 'PHP', 'C#', 'Ruby'],
+      'fullstack': ['React', 'Node.js', 'Next.js', 'TypeScript', 'MongoDB', 'PostgreSQL', 'Express', 'Python'],
+      'devops': ['Docker', 'Kubernetes', 'AWS', 'Azure', 'Jenkins', 'CI/CD', 'Terraform', 'Ansible'],
+      'ai-engineer': ['Python', 'TensorFlow', 'PyTorch', 'Machine Learning', 'Deep Learning', 'AI', 'Scikit-learn'],
+      'data-scientist': ['Python', 'R', 'SQL', 'Pandas', 'NumPy', 'Jupyter', 'Statistics', 'Data Analysis'],
+      'android-developer': ['Kotlin', 'Java', 'Android', 'Android Studio', 'Material Design'],
+      'ios-developer': ['Swift', 'iOS', 'Xcode', 'UIKit', 'SwiftUI'],
+      'blockchain-developer': ['Solidity', 'Web3', 'Ethereum', 'Smart Contracts', 'Blockchain'],
+      'cyber-security': ['Security', 'Penetration Testing', 'Cybersecurity', 'Vulnerability Assessment'],
+      'ux-design': ['UI/UX', 'Figma', 'Adobe', 'Design', 'Prototyping', 'User Research'],
+      'game-developer': ['Unity', 'Unreal', 'C#', 'C++', 'Game Development'],
+      'qa-engineer': ['Testing', 'Selenium', 'Jest', 'Cypress', 'QA', 'Test Automation'],
+      'software-architect': ['Architecture', 'System Design', 'Microservices', 'Scalability'],
+      'technical-writer': ['Documentation', 'Technical Writing', 'API Documentation'],
+      'mlops': ['MLOps', 'Machine Learning', 'Docker', 'Kubernetes', 'Model Deployment'],
+      'engineering-manager': ['Leadership', 'Management', 'Team Lead', 'Project Management'],
+      'product-manager': ['Product Management', 'Strategy', 'Analytics', 'Roadmap']
+    };
+
+    const relevantTechs = techMapping[careerPath] || [];
+    
+    // Fetch all projects first
+    const allProjects = await apiRequest<Project[]>('/projects', {
+      method: 'GET',
+      headers: createHeaders(),
+    });
+
+    // Filter projects based on relevant technologies
+    const filteredProjects = allProjects.filter(project => 
+      project.technologies?.some(tech => 
+        relevantTechs.some(relevantTech => 
+          tech.toLowerCase().includes(relevantTech.toLowerCase()) ||
+          relevantTech.toLowerCase().includes(tech.toLowerCase())
+        )
+      )
+    );
+
+    return filteredProjects;
+  } catch (error) {
+    console.warn('Backend not available, using empty array for career path projects');
+    return [];
+  }
+};
+
+export const getOrgLearningProjects = async (category?: string): Promise<Project[]> => {
+  try {
+    const endpoint = category ? `/projects/learning/org?category=${encodeURIComponent(category)}` : '/projects/learning/org';
+    return await apiRequest<Project>(endpoint, {
+      method: 'GET',
+      headers: createHeaders(),
+    });
+  } catch (error) {
+    console.warn('Backend not available, using mock learning projects data');
+    
+    // Return mock learning projects based on category
+    switch (category) {
+      case 'frontend':
+        return mockFrontendLearningProjects;
+      case 'backend':
+        return mockBackendLearningProjects;
+      case 'devops':
+        return mockDevOpsLearningProjects;
+      default:
+        // For other categories or no category, return a mix of learning projects
+        return [
+          ...mockFrontendLearningProjects.slice(0, 2),
+          ...mockBackendLearningProjects.slice(0, 1),
+          ...mockDevOpsLearningProjects.slice(0, 1),
+        ];
+    }
+  }
+};
+
 export const getProjectById = async (id: string): Promise<Project | undefined> => {
   try {
     return await apiRequest<Project>(`/projects/${id}`, {
@@ -169,6 +247,31 @@ export const createProject = async (data: {
     method: 'POST',
     headers: createHeaders(true),
     body: JSON.stringify(data),
+  });
+};
+
+export const createLearningProject = async (data: {
+  title: string;
+  description: string;
+  technologies: string[];
+  githubUrl?: string;
+  liveUrl?: string;
+  imageUrl?: string;
+  architecture?: string;
+  learningObjectives?: string[];
+  keyFeatures?: string[];
+  projectCategory?: string;
+  difficultyLevel?: string;
+  estimatedTime?: string;
+}): Promise<Project> => {
+  return apiRequest<Project>('/projects', {
+    method: 'POST',
+    headers: createHeaders(true),
+    body: JSON.stringify({
+      ...data,
+      // Mark as learning project type
+      isLearningProject: true
+    }),
   });
 };
 
@@ -344,9 +447,11 @@ export const getJobs = async (filters?: JobFilters): Promise<Job[]> => {
       url += `?${params.toString()}`;
     }
 
+    // Include authentication if available to get application status
+    const includeAuth = isAuthenticated();
     return await apiRequest<Job[]>(url, {
       method: 'GET',
-      headers: createHeaders(),
+      headers: createHeaders(includeAuth),
     });
   } catch (error) {
     console.warn('Backend not available, using mock data for jobs');
@@ -388,11 +493,7 @@ export const createJob = async (data: CreateJobData): Promise<Job> => {
     throw new Error('You must be logged in to create a job posting');
   }
   
-  // Debug: Log request details
-  const token = getAuthToken();
-  console.log('Creating job with token:', token ? 'Present' : 'Missing');
-  console.log('Job data being sent:', data);
-  
+  // Secure request handling without data exposure
   try {
     return await apiRequest<Job>('/jobs', {
       method: 'POST',
@@ -400,13 +501,7 @@ export const createJob = async (data: CreateJobData): Promise<Job> => {
       body: JSON.stringify(data),
     });
   } catch (error) {
-    console.error('Error creating job:', error);
-    console.error('Request details:', {
-      endpoint: '/jobs',
-      method: 'POST',
-      hasToken: !!token,
-      data: data
-    });
+    console.error('Error creating job:', error instanceof Error ? error.message : 'Unknown error');
     throw error;
   }
 };
@@ -470,6 +565,47 @@ export const downloadResume = (filename: string): string => {
   return `${BASE_URL}/jobs/download-resume/${filename}`;
 };
 
+// Authenticated Resume Download function
+export const downloadResumeFile = async (filename: string, applicantName: string): Promise<void> => {
+  try {
+    const token = getAuthToken();
+    
+    const response = await fetch(`${BASE_URL}/jobs/download-resume/${filename}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || 'Failed to download resume');
+    }
+
+    // Get the file as a blob
+    const blob = await response.blob();
+    
+    // Create a temporary URL for the blob
+    const url = window.URL.createObjectURL(blob);
+    
+    // Create a temporary anchor element and trigger download
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.style.display = 'none';
+    
+    document.body.appendChild(a);
+    a.click();
+    
+    // Clean up
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error('Error downloading resume:', error);
+    throw error;
+  }
+};
+
 // Job Application API functions
 export const applyForJob = async (jobId: string, applicationData: CreateJobApplicationData): Promise<{ message: string; application: JobApplication }> => {
   return apiRequest<{ message: string; application: JobApplication }>(`/jobs/${jobId}/apply`, {
@@ -505,6 +641,14 @@ export const bulkUpdateApplications = async (
 
 export const getUserApplications = async (userId: string): Promise<JobApplication[]> => {
   return apiRequest<JobApplication[]>(`/jobs/user/${userId}/applications`, {
+    method: 'GET',
+    headers: createHeaders(true),
+  });
+};
+
+// Get single application details (including rejection reason)
+export const getApplicationDetails = async (applicationId: string): Promise<JobApplication> => {
+  return apiRequest<JobApplication>(`/jobs/applications/${applicationId}`, {
     method: 'GET',
     headers: createHeaders(true),
   });
@@ -649,6 +793,24 @@ export const register = async (
     method: 'POST',
     headers: createHeaders(),
     body: JSON.stringify({ email, password, name, role }),
+  });
+};
+
+export const registerCompany = async (
+  companyName: string,
+  email: string,
+  password: string
+): Promise<{
+  user: User;
+  access_token: string;
+}> => {
+  return apiRequest<{
+    user: User;
+    access_token: string;
+  }>('/auth/register/company', {
+    method: 'POST',
+    headers: createHeaders(),
+    body: JSON.stringify({ companyName, email, password }),
   });
 };
 
@@ -848,4 +1010,500 @@ export const updateUserSettings = async (settings: Partial<UserSettings>): Promi
 };
 
 // Export utility functions for use in components
-export { isAuthenticated, validateUserForJobOperations }; 
+export { isAuthenticated, validateUserForJobOperations };
+
+export const getNotifications = async (): Promise<any[]> => {
+  return apiRequest<any[]>('/notifications', {
+    method: 'GET',
+    headers: createHeaders(true),
+  });
+};
+
+export const markNotificationAsRead = async (id: string): Promise<any> => {
+  return apiRequest<any>(`/notifications/${id}/read`, {
+    method: 'PATCH',
+    headers: createHeaders(true),
+  });
+};
+
+// Suggestion API functions
+export const getSuggestions = async (filters?: {
+  careerPathId?: string;
+  type?: string;
+  status?: string;
+  priority?: string;
+  sortBy?: string;
+  search?: string;
+  tags?: string[];
+  page?: number;
+  limit?: number;
+}): Promise<{
+  suggestions: Suggestion[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}> => {
+  try {
+    const params = new URLSearchParams();
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          if (Array.isArray(value)) {
+            params.append(key, value.join(','));
+          } else {
+            params.append(key, value.toString());
+          }
+        }
+      });
+    }
+
+    const queryString = params.toString() ? `?${params.toString()}` : '';
+    return await apiRequest(`/suggestions${queryString}`, {
+      method: 'GET',
+      headers: createHeaders(),
+    });
+  } catch (error) {
+    console.warn('Backend not available, using mock data for suggestions');
+    // Return mock data when backend is unavailable
+    return {
+      suggestions: [
+        {
+          id: '1',
+          type: 'improvement' as const,
+          title: 'Add Modern React Features',
+          description: 'Add more real-world project examples with modern frameworks like Next.js 14 and the latest React features.',
+          careerPathId: filters?.careerPathId || 'frontend',
+          careerPathTitle: 'Frontend Development',
+          author: 'Alex Chen',
+          authorId: 'user-1',
+          authorRole: 'PROFESSIONAL' as const,
+          createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+          updatedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+          votes: 23,
+          hasUserVoted: false,
+          rating: {
+            averageRating: 4.2,
+            totalRatings: 18,
+            ratingDistribution: {
+              1: 0,
+              2: 1,
+              3: 3,
+              4: 6,
+              5: 8
+            }
+          },
+          status: 'approved' as const,
+          priority: 'medium' as const,
+          tags: ['react', 'nextjs', 'modern'],
+          commentsCount: 5
+        },
+        {
+          id: '2',
+          type: 'content' as const,
+          title: 'TypeScript Learning Path',
+          description: 'Include TypeScript learning path and integration examples with existing JavaScript projects.',
+          careerPathId: filters?.careerPathId || 'frontend',
+          careerPathTitle: 'Frontend Development',
+          author: 'Sarah Johnson',
+          authorId: 'user-2',
+          authorRole: 'STUDENT' as const,
+          createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+          updatedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+          votes: 18,
+          hasUserVoted: false,
+          rating: {
+            averageRating: 3.8,
+            totalRatings: 12,
+            ratingDistribution: {
+              1: 0,
+              2: 2,
+              3: 2,
+              4: 5,
+              5: 3
+            }
+          },
+          status: 'under_review' as const,
+          priority: 'high' as const,
+          tags: ['typescript', 'javascript', 'learning'],
+          commentsCount: 3
+        },
+        {
+          id: '3',
+          type: 'feature' as const,
+          title: 'Interactive Coding Challenges',
+          description: 'Add interactive coding challenges within the roadmap for hands-on practice.',
+          careerPathId: filters?.careerPathId || 'frontend',
+          careerPathTitle: 'Frontend Development',
+          author: 'Mike Rodriguez',
+          authorId: 'user-3',
+          authorRole: 'COMPANY' as const,
+          createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+          updatedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+          votes: 31,
+          hasUserVoted: true,
+          userVoteType: 'up' as const,
+          rating: {
+            averageRating: 4.5,
+            totalRatings: 24,
+            ratingDistribution: {
+              1: 0,
+              2: 0,
+              3: 2,
+              4: 10,
+              5: 12
+            }
+          },
+          status: 'pending' as const,
+          priority: 'low' as const,
+          tags: ['interactive', 'challenges', 'practice'],
+          commentsCount: 8
+        }
+      ],
+      pagination: {
+        total: 3,
+        page: 1,
+        limit: 10,
+        totalPages: 1
+      }
+    };
+  }
+};
+
+export const createSuggestion = async (data: CreateSuggestionData): Promise<Suggestion> => {
+  try {
+    const formData = new FormData();
+    formData.append('type', data.type);
+    formData.append('title', data.title);
+    formData.append('description', data.description);
+    formData.append('careerPathId', data.careerPathId);
+    formData.append('careerPathTitle', data.careerPathTitle);
+    formData.append('priority', data.priority);
+    formData.append('tags', JSON.stringify(data.tags));
+    
+    if (data.attachments) {
+      data.attachments.forEach((file) => {
+        formData.append(`attachments`, file);
+      });
+    }
+
+    return await apiRequest<Suggestion>('/suggestions', {
+      method: 'POST',
+      headers: createHeaders(true), // Include auth headers
+      body: formData,
+    });
+  } catch (error) {
+    console.warn('Backend not available, simulating suggestion creation');
+    
+    // Try to get current user info for mock response
+    let authorName = 'Anonymous User';
+    let authorId = 'anonymous';
+    let authorRole: 'STUDENT' | 'PROFESSIONAL' | 'COMPANY' | 'ADMIN' = 'STUDENT';
+    
+    try {
+      const currentUser = await getCurrentUser();
+      if (currentUser.user) {
+        authorName = currentUser.user.name;
+        authorId = currentUser.user.id;
+        authorRole = currentUser.user.role;
+      }
+    } catch {
+      // If can't get current user, use defaults
+      console.warn('Could not get current user for mock suggestion');
+    }
+    
+    // Return mock created suggestion
+    return {
+      id: `suggestion-${Date.now()}`,
+      type: data.type,
+      title: data.title,
+      description: data.description,
+      careerPathId: data.careerPathId,
+      careerPathTitle: data.careerPathTitle,
+      author: authorName,
+      authorId: authorId,
+      authorRole: authorRole,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      votes: 0,
+      hasUserVoted: false,
+      rating: {
+        averageRating: 0,
+        totalRatings: 0,
+        ratingDistribution: {
+          1: 0,
+          2: 0,
+          3: 0,
+          4: 0,
+          5: 0
+        }
+      },
+      status: 'pending' as const,
+      priority: data.priority,
+      tags: data.tags,
+      commentsCount: 0
+    };
+  }
+};
+
+export const voteSuggestion = async (suggestionId: string, voteType: 'up' | 'down'): Promise<{
+  votes: number;
+  userVoteType: 'up' | 'down' | null;
+}> => {
+  try {
+    return await apiRequest(`/suggestions/${suggestionId}/vote`, {
+      method: 'POST',
+      headers: createHeaders(true),
+      body: JSON.stringify({ voteType }),
+    });
+  } catch (error) {
+    console.warn('Backend not available, simulating vote');
+    return {
+      votes: Math.floor(Math.random() * 50) + 1,
+      userVoteType: voteType
+    };
+  }
+};
+
+export const addSuggestionComment = async (suggestionId: string, content: string): Promise<SuggestionComment> => {
+  try {
+    return await apiRequest(`/suggestions/${suggestionId}/comments`, {
+      method: 'POST',
+      headers: createHeaders(true),
+      body: JSON.stringify({ content }),
+    });
+  } catch (error) {
+    console.warn('Backend not available, simulating comment creation');
+    return {
+      id: `comment-${Date.now()}`,
+      suggestionId,
+      content,
+      author: 'Current User',
+      authorId: 'current-user',
+      authorRole: 'STUDENT' as const,
+      createdAt: new Date().toISOString()
+    };
+  }
+};
+
+export const getSuggestionComments = async (suggestionId: string): Promise<SuggestionComment[]> => {
+  try {
+    return await apiRequest(`/suggestions/${suggestionId}/comments`, {
+      method: 'GET',
+      headers: createHeaders(),
+    });
+  } catch (error) {
+    console.warn('Backend not available, returning empty comments');
+    return [];
+  }
+};
+
+export const getSuggestionStats = async (careerPathId?: string): Promise<SuggestionStats> => {
+  try {
+    const params = careerPathId ? `?careerPathId=${careerPathId}` : '';
+    return await apiRequest(`/suggestions/stats${params}`, {
+      method: 'GET',
+      headers: createHeaders(),
+    });
+  } catch (error) {
+    console.warn('Backend not available, returning mock stats');
+    return {
+      totalSuggestions: 3,
+      pendingSuggestions: 1,
+      approvedSuggestions: 1,
+      implementedSuggestions: 0,
+      rejectedSuggestions: 0,
+      suggestionsByType: {
+        improvement: 1,
+        content: 1,
+        feature: 1,
+        bug: 0,
+        other: 0
+      },
+      suggestionsByCareerPath: {
+        frontend: 3,
+        backend: 0,
+        devops: 0
+      },
+      averageVotes: 24,
+      topTags: [
+        { tag: 'react', count: 2 },
+        { tag: 'typescript', count: 1 },
+        { tag: 'interactive', count: 1 }
+      ]
+    };
+  }
+};
+
+// Admin suggestion functions
+export const getAdminSuggestions = async (filters?: {
+  status?: string;
+  priority?: string;
+  type?: string;
+  careerPath?: string;
+  sortBy?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+}): Promise<{
+  suggestions: Suggestion[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}> => {
+  try {
+    const params = new URLSearchParams();
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          params.append(key, value.toString());
+        }
+      });
+    }
+
+    const queryString = params.toString() ? `?${params.toString()}` : '';
+    return await apiRequest(`/admin/suggestions${queryString}`, {
+      method: 'GET',
+      headers: createHeaders(true),
+    });
+  } catch (error) {
+    console.warn('Backend not available, using mock admin suggestions');
+    return getSuggestions(filters as any);
+  }
+};
+
+export const updateSuggestionStatus = async (
+  suggestionId: string, 
+  status: SuggestionStatus,
+  adminResponse?: string
+): Promise<Suggestion> => {
+  try {
+    return await apiRequest(`/admin/suggestions/${suggestionId}/status`, {
+      method: 'PATCH',
+      headers: createHeaders(true),
+      body: JSON.stringify({ status, adminResponse }),
+    });
+  } catch (error) {
+    console.warn('Backend not available, simulating status update');
+    throw error;
+  }
+};
+
+export const bulkUpdateSuggestions = async (
+  suggestionIds: string[],
+  action: 'approve' | 'reject' | 'implement',
+  notes?: string
+): Promise<{ updated: number }> => {
+  try {
+    return await apiRequest('/admin/suggestions/bulk', {
+      method: 'POST',
+      headers: createHeaders(true),
+      body: JSON.stringify({ suggestionIds, action, notes }),
+    });
+  } catch (error) {
+    console.warn('Backend not available, simulating bulk update');
+    return { updated: suggestionIds.length };
+  }
+};
+
+// Rating and Feedback API functions
+export const rateSuggestion = async (
+  suggestionId: string, 
+  rating: number, 
+  feedback?: string,
+  categories?: {
+    relevance: number;
+    clarity: number;
+    impact: number;
+    feasibility: number;
+  }
+): Promise<{
+  averageRating: number;
+  totalRatings: number;
+  userRating: number;
+}> => {
+  try {
+    return await apiRequest(`/suggestions/${suggestionId}/rate`, {
+      method: 'POST',
+      headers: createHeaders(true),
+      body: JSON.stringify({ rating, feedback, categories }),
+    });
+  } catch (error) {
+    console.warn('Backend not available, simulating rating submission');
+    // Return mock response
+    return {
+      averageRating: Math.random() * 2 + 3, // Random rating between 3-5
+      totalRatings: Math.floor(Math.random() * 20) + 5,
+      userRating: rating
+    };
+  }
+};
+
+export const submitSuggestionFeedback = async (
+  suggestionId: string,
+  overallRating: number,
+  categoryRatings: {
+    relevance: number;
+    clarity: number;
+    impact: number;
+    feasibility: number;
+  },
+  writtenFeedback?: string
+): Promise<{
+  success: boolean;
+  averageRating: number;
+  totalRatings: number;
+}> => {
+  try {
+    return await apiRequest(`/suggestions/${suggestionId}/feedback`, {
+      method: 'POST',
+      headers: createHeaders(true),
+      body: JSON.stringify({ 
+        overallRating, 
+        categoryRatings, 
+        writtenFeedback 
+      }),
+    });
+  } catch (error) {
+    console.warn('Backend not available, simulating feedback submission');
+    // Return mock response
+    return {
+      success: true,
+      averageRating: Math.random() * 2 + 3, // Random rating between 3-5
+      totalRatings: Math.floor(Math.random() * 20) + 5
+    };
+  }
+};
+
+export const getSuggestionRating = async (suggestionId: string): Promise<{
+  averageRating: number;
+  totalRatings: number;
+  ratingDistribution: Record<number, number>;
+  userRating?: number;
+}> => {
+  try {
+    return await apiRequest(`/suggestions/${suggestionId}/rating`, {
+      method: 'GET',
+      headers: createHeaders(true),
+    });
+  } catch (error) {
+    console.warn('Backend not available, returning mock rating data');
+    return {
+      averageRating: Math.random() * 2 + 3,
+      totalRatings: Math.floor(Math.random() * 20) + 5,
+      ratingDistribution: {
+        1: Math.floor(Math.random() * 3),
+        2: Math.floor(Math.random() * 5),
+        3: Math.floor(Math.random() * 8),
+        4: Math.floor(Math.random() * 10) + 5,
+        5: Math.floor(Math.random() * 15) + 8
+      },
+      userRating: undefined
+    };
+  }
+};
