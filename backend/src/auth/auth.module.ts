@@ -29,9 +29,7 @@ import { RefreshTokenService } from './services/refresh-token.service';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, RefreshTokenService],
-  // Temporarily disabled OAuth strategies until env loading is fixed
-  // providers: [AuthService, JwtStrategy, GoogleStrategy, GitHubStrategy, RefreshTokenService],
+  providers: [AuthService, JwtStrategy, GoogleStrategy, GitHubStrategy, RefreshTokenService],
   exports: [AuthService, RefreshTokenService],
 })
 export class AuthModule {} 

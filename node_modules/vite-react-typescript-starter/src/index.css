@@ -43,15 +43,21 @@
 
   /* Mobile-optimized button components */
   .btn-primary-mobile {
-    @apply bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200 btn-touch;
+    @apply bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200;
+    min-height: 44px;
+    min-width: 44px;
   }
 
   .btn-secondary-mobile {
-    @apply bg-gray-700 hover:bg-gray-600 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200 btn-touch;
+    @apply bg-gray-700 hover:bg-gray-600 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200;
+    min-height: 44px;
+    min-width: 44px;
   }
 
   .btn-ghost-mobile {
-    @apply bg-transparent hover:bg-gray-700 text-gray-300 hover:text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200 btn-touch;
+    @apply bg-transparent hover:bg-gray-700 text-gray-300 hover:text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200;
+    min-height: 44px;
+    min-width: 44px;
   }
 
   /* Responsive form inputs */
@@ -237,11 +243,21 @@
 
   /* Interaction states optimized for touch */
   .touch-feedback {
-    @apply transition-all duration-150 active:scale-95;
+    @apply transition-all duration-150;
+    transform: scale(1);
+  }
+  
+  .touch-feedback:active {
+    transform: scale(0.95);
   }
 
   .touch-feedback-subtle {
-    @apply transition-all duration-150 active:scale-98;
+    @apply transition-all duration-150;
+    transform: scale(1);
+  }
+  
+  .touch-feedback-subtle:active {
+    transform: scale(0.98);
   }
 
   /* Safe area support for mobile devices */
