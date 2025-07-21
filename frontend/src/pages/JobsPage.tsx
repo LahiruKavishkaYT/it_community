@@ -69,7 +69,11 @@ const JobPostingModal: React.FC<{
 
   // Validation helpers
   const isBasicsValid = () => formData.title.trim().length >= 5 && formData.location.trim().length > 0;
-  const isRequirementsValid = () => formData.description.trim().length >= 50 && formData.requirements.length > 0;
+  const isRequirementsValid = () => {
+    const hasValidDescription = formData.description.trim().length >= 50;
+    const hasRequirements = formData.requirements.length > 0;
+    return hasValidDescription && hasRequirements;
+  };
   const isCompValid = () => {
     if (!formData.salaryMin && !formData.salaryMax) return true;
     const min = parseInt(formData.salaryMin || '0');
@@ -317,10 +321,60 @@ const JobPostingModal: React.FC<{
       <div>
         <label htmlFor="description" className="block text-sm font-medium text-gray-300 mb-2">Job Description *</label>
         <textarea id="description" name="description" value={formData.description} onChange={handleInputChange} rows={5} placeholder="Describe the role, responsibilities…" className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white" />
-        <p className="text-xs text-gray-400 mt-1">50–5000 characters. Tip: include tech keywords (React, Docker, Kubernetes) for better search matches.</p>
+        <p className="text-xs text-gray-400 mt-1">Minimum 50 characters. Include tech keywords (React, Docker, Kubernetes) for better search matches.</p>
       </div>
-      {/* Requirements list UI remains existing (reuse) */}
-      {/* ... existing requirements code ... */}
+
+      {/* Requirements */}
+      <div>
+        <label htmlFor="requirements" className="block text-sm font-medium text-gray-300 mb-2">Job Requirements *</label>
+        <div className="space-y-2">
+          <div className="flex space-x-2">
+            <input
+              id="requirements"
+              type="text"
+              value={newRequirement}
+              onChange={(e) => setNewRequirement(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Enter a requirement (e.g., 3+ years React experience)"
+              className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400"
+            />
+            <Button
+              type="button"
+              onClick={addRequirement}
+              disabled={!newRequirement.trim()}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Add
+            </Button>
+          </div>
+          <p className="text-xs text-gray-400">Add at least one requirement. Press Enter or click Add to include each requirement.</p>
+        </div>
+
+        {/* Requirements List */}
+        {formData.requirements.length > 0 && (
+          <div className="mt-4">
+            <h4 className="text-sm font-medium text-gray-300 mb-2">Added Requirements:</h4>
+            <div className="space-y-2">
+              {formData.requirements.map((requirement, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between p-2 bg-gray-700 rounded-md border border-gray-600"
+                >
+                  <span className="text-gray-200 text-sm">{requirement}</span>
+                  <Button
+                    type="button"
+                    onClick={() => removeRequirement(requirement)}
+                    className="text-red-400 hover:text-red-300 p-1"
+                    variant="ghost"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </>
   );
 
@@ -757,7 +811,7 @@ const JobsPage: React.FC = () => {
 
       return {
         text: `You Applied (${statusText})`,
-        variant: 'default' as const,
+        variant: 'primary' as const,
         disabled: false,
         onClick: () => handleViewApplication(job),
         className: statusColors[status],
@@ -767,7 +821,7 @@ const JobsPage: React.FC = () => {
 
     return {
       text: 'Apply Now',
-      variant: 'default' as const,
+      variant: 'primary' as const,
       disabled: false,
       onClick: () => handleApplyClick(job)
     };

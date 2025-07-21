@@ -347,8 +347,8 @@ export class ProjectsService {
       throw new BadRequestException('Students can only create student projects');
     }
 
-    if (userRole === UserRole.PROFESSIONAL && projectType !== ProjectType.PRACTICE_PROJECT) {
-      throw new BadRequestException('IT professionals can only create practice projects');
+    if ((userRole === UserRole.PROFESSIONAL || userRole === UserRole.COMPANY) && projectType !== ProjectType.PRACTICE_PROJECT) {
+      throw new BadRequestException('IT professionals and companies can only create practice projects');
     }
   }
 

@@ -14,6 +14,7 @@ import {
   Save,
   Send,
   ArrowLeft,
+  ArrowRight,
   Plus,
   X,
   Clock,
@@ -276,28 +277,28 @@ const LearningProjectUploadForm: React.FC = () => {
     <div className="min-h-screen bg-gray-900">
       {/* Header */}
       <div className="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 border-b border-gray-700/50">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <Button
               variant="ghost"
               onClick={() => navigate('/projects')}
-              className="flex items-center space-x-2"
+              className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors"
             >
               <ArrowLeft className="h-4 w-4" />
               <span>Back to Projects</span>
             </Button>
             
-            <div className="text-center">
-              <h1 className="text-2xl font-bold text-white">Learning Project Submission</h1>
-              <p className="text-gray-400">Share a learning project for students</p>
+            <div className="text-center flex-1">
+              <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">Learning Project Submission</h1>
+              <p className="text-gray-400 text-lg">Share a learning project for students to practice and grow</p>
             </div>
             
-            <div className="w-32" /> {/* Spacer for centering */}
+            <div className="w-32 hidden md:block" /> {/* Spacer for centering */}
           </div>
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <SectionProgress />
 
         {/* Error Display */}
@@ -421,22 +422,24 @@ const LearningProjectUploadForm: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Project Type <span className="text-red-400">*</span>
                 </label>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {projectTypes.map((type) => (
                     <div
                       key={type.value}
                       onClick={() => setFormData(prev => ({ ...prev, projectType: type.value }))}
-                      className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                      className={`p-4 border rounded-xl cursor-pointer transition-all duration-200 hover:scale-[1.02] ${
                         formData.projectType === type.value
-                          ? 'border-blue-500 bg-blue-500/10 text-blue-300'
-                          : 'border-gray-600 hover:border-gray-500 text-gray-300'
+                          ? 'border-blue-500 bg-blue-500/10 text-blue-300 shadow-lg shadow-blue-500/20'
+                          : 'border-gray-600 hover:border-gray-500 text-gray-300 hover:bg-gray-800/50'
                       }`}
                     >
-                      <div className="flex items-center space-x-2 mb-1">
-                        {type.icon}
-                        <span className="font-medium">{type.value}</span>
+                      <div className="flex items-center space-x-3 mb-2">
+                        <div className={`p-2 rounded-lg ${formData.projectType === type.value ? 'bg-blue-500/20' : 'bg-gray-700/50'}`}>
+                          {type.icon}
+                        </div>
+                        <span className="font-semibold text-base">{type.value}</span>
                       </div>
-                      <p className="text-xs text-gray-400">{type.description}</p>
+                      <p className="text-sm text-gray-400 leading-relaxed">{type.description}</p>
                     </div>
                   ))}
                 </div>
@@ -463,19 +466,19 @@ const LearningProjectUploadForm: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Difficulty Level <span className="text-red-400">*</span>
                 </label>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {difficultyLevels.map((level) => (
                     <div
                       key={level.value}
                       onClick={() => setFormData(prev => ({ ...prev, difficultyLevel: level.value as any }))}
-                      className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                      className={`p-4 border rounded-xl cursor-pointer transition-all duration-200 hover:scale-[1.02] ${
                         formData.difficultyLevel === level.value
-                          ? `border-current ${level.color}`
-                          : 'border-gray-600 hover:border-gray-500 text-gray-300'
+                          ? `border-current ${level.color} shadow-lg`
+                          : 'border-gray-600 hover:border-gray-500 text-gray-300 hover:bg-gray-800/50'
                       }`}
                     >
-                      <div className="font-medium mb-1">{level.value}</div>
-                      <p className="text-xs text-gray-400">{level.description}</p>
+                      <div className="font-semibold text-lg mb-2">{level.value}</div>
+                      <p className="text-sm text-gray-400 leading-relaxed">{level.description}</p>
                     </div>
                   ))}
                 </div>
@@ -767,44 +770,44 @@ const LearningProjectUploadForm: React.FC = () => {
         )}
 
         {/* Navigation */}
-        <div className="flex items-center justify-between mt-8">
+        <div className="flex flex-col sm:flex-row items-center justify-between mt-12 pt-8 border-t border-gray-700/50 gap-6">
           <Button
-            variant="ghost"
+            variant="outline"
             onClick={prevSection}
             disabled={currentSection === 1}
-            className="flex items-center space-x-2"
+            className="flex items-center space-x-2 px-6 py-3 text-gray-300 hover:text-white border-gray-600 hover:border-gray-500"
           >
-            <ArrowLeft className="h-4 w-4" />
-            <span>Previous</span>
+            <ArrowLeft className="h-5 w-5" />
+            <span>Previous Step</span>
           </Button>
 
-          <div className="flex items-center space-x-3">
+          <div className="flex flex-col sm:flex-row items-center space-y-3 sm:space-y-0 sm:space-x-4">
             {currentSection === 4 && (
               <>
                 <Button
                   variant="outline"
                   onClick={() => handleSubmit(true)}
                   disabled={isSubmitting}
-                  className="flex items-center space-x-2"
+                  className="flex items-center space-x-2 px-6 py-3 border-amber-500 text-amber-300 hover:bg-amber-500/10"
                 >
-                  <Save className="h-4 w-4" />
-                  <span>Save Draft</span>
+                  <Save className="h-5 w-5" />
+                  <span>Save as Draft</span>
                 </Button>
                 
                 <Button
                   onClick={() => handleSubmit(false)}
-                  disabled={isSubmitting}
-                  className="flex items-center space-x-2"
+                  disabled={isSubmitting || !formData.licenseAgreement}
+                  className="flex items-center space-x-2 px-8 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? (
                     <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                       <span>Submitting...</span>
                     </>
                   ) : (
                     <>
-                      <Send className="h-4 w-4" />
-                      <span>Submit Project</span>
+                      <Send className="h-5 w-5" />
+                      <span>Submit for Review</span>
                     </>
                   )}
                 </Button>
@@ -814,10 +817,10 @@ const LearningProjectUploadForm: React.FC = () => {
             {currentSection < 4 && (
               <Button
                 onClick={nextSection}
-                className="flex items-center space-x-2"
+                className="flex items-center space-x-2 px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold"
               >
-                <span>Next</span>
-                <ArrowLeft className="h-4 w-4 rotate-180" />
+                <span>Next Step</span>
+                <ArrowRight className="h-5 w-5" />
               </Button>
             )}
           </div>

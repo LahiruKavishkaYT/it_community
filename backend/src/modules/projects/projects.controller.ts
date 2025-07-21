@@ -424,18 +424,19 @@ export class ProjectsController {
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.STUDENT, UserRole.PROFESSIONAL)
+  @Roles(UserRole.STUDENT, UserRole.PROFESSIONAL, UserRole.COMPANY)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ 
     summary: 'Create new project',
     description: `
       Create a new project in the platform.
       
-      **Permissions:** STUDENT and PROFESSIONAL users can create projects.
+      **Permissions:** STUDENT, PROFESSIONAL, and COMPANY users can create projects.
       
       **Project Types:**
       - STUDENT projects: Academic projects, assignments, personal learning projects
       - PROFESSIONAL projects: Case studies, advanced implementations, portfolio pieces
+      - COMPANY projects: Learning projects and case studies for educational purposes
       
       **Workflow:**
       1. Project created in DRAFT status
@@ -496,7 +497,7 @@ export class ProjectsController {
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.STUDENT, UserRole.PROFESSIONAL)
+  @Roles(UserRole.STUDENT, UserRole.PROFESSIONAL, UserRole.COMPANY)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ 
     summary: 'Update project',
@@ -505,7 +506,7 @@ export class ProjectsController {
       
       **Permissions:** 
       - Only the project author can update their project
-      - STUDENT and PROFESSIONAL users only
+      - STUDENT, PROFESSIONAL, and COMPANY users only
       
       **Update Restrictions:**
       - Projects in PENDING_APPROVAL status cannot be edited
@@ -561,7 +562,7 @@ export class ProjectsController {
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.STUDENT, UserRole.PROFESSIONAL)
+  @Roles(UserRole.STUDENT, UserRole.PROFESSIONAL, UserRole.COMPANY)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ 
     summary: 'Delete project',
@@ -570,7 +571,7 @@ export class ProjectsController {
       
       **Permissions:** 
       - Only the project author can delete their project
-      - STUDENT and PROFESSIONAL users only
+      - STUDENT, PROFESSIONAL, and COMPANY users only
       
       **Deletion Rules:**
       - Projects with feedback cannot be deleted (archived instead)

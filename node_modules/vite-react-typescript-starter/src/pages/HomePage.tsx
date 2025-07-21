@@ -162,27 +162,30 @@ const HomePage: React.FC = () => {
       icon: Code,
       color: 'text-blue-400',
       bgColor: 'bg-blue-600/20',
-      skills: ['HTML/CSS', 'JavaScript', 'React', 'TypeScript'],
-      salary: '$75K-150K',
-      demand: 'High'
+      skills: ['React', 'TypeScript', 'Next.js', 'Tailwind CSS'],
+      salary: '$85K-140K',
+      demand: 'High',
+      avgSalary: '$113K'
     },
     {
       title: 'Backend Developer',
-      icon: Users,
+      icon: Building2,
       color: 'text-green-400',
       bgColor: 'bg-green-600/20',
-      skills: ['Node.js', 'Python', 'Databases', 'APIs'],
-      salary: '$80K-160K',
-      demand: 'Very High'
+      skills: ['Node.js', 'Python', 'PostgreSQL', 'Microservices'],
+      salary: '$95K-145K',
+      demand: 'Very High',
+      avgSalary: '$120K'
     },
     {
       title: 'DevOps Engineer',
       icon: Zap,
       color: 'text-orange-400',
       bgColor: 'bg-orange-600/20',
-      skills: ['AWS', 'Docker', 'Kubernetes', 'CI/CD'],
-      salary: '$90K-180K',
-      demand: 'Extremely High'
+      skills: ['AWS', 'Docker', 'Kubernetes', 'Terraform'],
+      salary: '$110K-160K',
+      demand: 'Extremely High',
+      avgSalary: '$135K'
     }
   ];
 
@@ -211,8 +214,12 @@ const HomePage: React.FC = () => {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
               <Link to="/signup">
-                <Button size="lg" className="w-full sm:w-auto bg-white text-blue-600 hover:bg-gray-100 font-semibold px-8 py-4 text-lg">
-                  <Rocket className="mr-2 h-5 w-5" />
+                <Button 
+                  variant="secondary" 
+                  size="lg" 
+                  leftIcon={<Rocket className="h-5 w-5" />}
+                  className="w-full sm:w-auto !bg-white !text-blue-600 hover:!bg-gray-100 !border-white font-semibold px-8 py-4 text-lg"
+                >
                   Start Your Journey
                 </Button>
               </Link>
@@ -367,8 +374,11 @@ const HomePage: React.FC = () => {
 
           <div className="text-center">
             <Link to="/signup">
-              <Button size="lg" className="px-8 py-4 text-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
-                <Rocket className="mr-2 h-5 w-5" />
+              <Button 
+                size="lg" 
+                leftIcon={<Rocket className="h-5 w-5" />}
+                className="px-8 py-4 text-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+              >
                 Start Your Journey Today
               </Button>
             </Link>
@@ -379,115 +389,6 @@ const HomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* Goal Achievement Success Stories */}
-      <section className="py-20 bg-gray-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-white mb-4">
-              Real Goals. Real Results.
-            </h2>
-            <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-              See how our community members turned their IT aspirations into career success stories
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8 mb-12">
-            {/* Marcus's Story */}
-            <Card hover className="bg-gray-800/50 backdrop-blur-sm">
-              <CardContent className="p-6">
-                <div className="flex items-center mb-4">
-                  <img 
-                    src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face" 
-                    className="w-12 h-12 rounded-full mr-4 object-cover" 
-                    alt="Marcus Rodriguez"
-                  />
-                  <div>
-                    <h4 className="text-white font-semibold">Marcus Rodriguez</h4>
-                    <p className="text-gray-400 text-sm">Student → Software Engineer</p>
-                  </div>
-                </div>
-                <p className="text-gray-300 text-sm mb-4 leading-relaxed">
-                  "ITCommunity helped me go from zero programming knowledge to landing my first dev job at a startup in just 9 months!"
-                </p>
-                <div className="flex items-center justify-between">
-                  <div className="text-blue-400 text-sm font-medium">Goal: First Tech Job ✓</div>
-                  <div className="flex text-yellow-400">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="h-4 w-4 fill-current" />
-                    ))}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Sarah's Story */}
-            <Card hover className="bg-gray-800/50 backdrop-blur-sm">
-              <CardContent className="p-6">
-                <div className="flex items-center mb-4">
-                  <img 
-                    src="https://images.unsplash.com/photo-1494790108755-2616b9b5c0a3?w=150&h=150&fit=crop&crop=face" 
-                    className="w-12 h-12 rounded-full mr-4 object-cover" 
-                    alt="Sarah Chen"
-                  />
-                  <div>
-                    <h4 className="text-white font-semibold">Sarah Chen</h4>
-                    <p className="text-gray-400 text-sm">Junior → Senior Developer</p>
-                  </div>
-                </div>
-                <p className="text-gray-300 text-sm mb-4 leading-relaxed">
-                  "The mentorship and project feedback helped me level up my skills and get promoted to Senior Developer with a 40% raise!"
-                </p>
-                <div className="flex items-center justify-between">
-                  <div className="text-green-400 text-sm font-medium">Goal: Career Advancement ✓</div>
-                  <div className="flex text-yellow-400">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="h-4 w-4 fill-current" />
-                    ))}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Alex's Story */}
-            <Card hover className="bg-gray-800/50 backdrop-blur-sm">
-              <CardContent className="p-6">
-                <div className="flex items-center mb-4">
-                  <img 
-                    src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face" 
-                    className="w-12 h-12 rounded-full mr-4 object-cover" 
-                    alt="Alex Thompson"
-                  />
-                  <div>
-                    <h4 className="text-white font-semibold">Alex Thompson</h4>
-                    <p className="text-gray-400 text-sm">Business → Tech Lead</p>
-                  </div>
-                </div>
-                <p className="text-gray-300 text-sm mb-4 leading-relaxed">
-                  "Transitioned from business to tech by following the roadmaps and networking at events. Now I'm leading a development team!"
-                </p>
-                <div className="flex items-center justify-between">
-                  <div className="text-purple-400 text-sm font-medium">Goal: Career Change ✓</div>
-                  <div className="flex text-yellow-400">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="h-4 w-4 fill-current" />
-                    ))}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="text-center">
-            <p className="text-gray-400 mb-6">Join 13,000+ members who are already achieving their IT goals</p>
-            <Link to="/signup">
-              <Button size="lg" className="px-8">
-                <Rocket className="mr-2 h-5 w-5" />
-                Start Your Success Story
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </section>
 
       {/* Featured Projects Section */}
       <section className="py-20 bg-gray-900">
@@ -520,25 +421,128 @@ const HomePage: React.FC = () => {
                       ))}
                     </div>
           ) : (
-            <HoverEffect 
-              items={formatProjectsForHoverEffect(projects)} 
-              className="mb-8"
-            />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-8">
+              {projects.slice(0, 6).map((project, index) => (
+                <Card 
+                  key={project.id || index} 
+                  hover 
+                  className="group overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-blue-500/10"
+                  onClick={() => window.location.href = `/projects/${project.id}`}
+                >
+                  {/* Project Image */}
+                  <div className="aspect-video bg-gradient-to-br from-gray-800 to-gray-900 overflow-hidden relative">
+                    {project.imageUrl ? (
+                      <img
+                        src={project.imageUrl}
+                        alt={project.title}
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-500/20 to-purple-600/20">
+                        <div className="text-center">
+                          <Code className="h-12 w-12 text-blue-400 mx-auto mb-2" />
+                          <span className="text-white text-lg font-bold">
+                            {project.title.split(' ').map(word => word[0]).join('').substring(0, 2).toUpperCase()}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Hover Overlay */}
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                      <div className="text-center">
+                        <Eye className="h-8 w-8 text-white mx-auto mb-2" />
+                        <span className="text-white font-medium">View Project</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <CardContent className="p-6">
+                    {/* Project Title & Author */}
+                    <div className="mb-4">
+                      <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-blue-300 transition-colors line-clamp-1">
+                        {project.title}
+                      </h3>
+                      <p className="text-sm text-gray-400">
+                        by {project.author}
+                      </p>
+                    </div>
+
+                    {/* Project Description */}
+                    <p className="text-gray-300 text-sm leading-relaxed mb-4 line-clamp-2">
+                      {project.description}
+                    </p>
+
+                    {/* Technologies */}
+                    {project.technologies && project.technologies.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        {project.technologies.slice(0, 3).map((tech, techIndex) => (
+                          <span
+                            key={techIndex}
+                            className="px-2 py-1 bg-blue-500/20 text-blue-300 text-xs rounded-md border border-blue-500/30"
+                          >
+                            {tech}
+                          </span>
+                        ))}
+                        {project.technologies.length > 3 && (
+                          <span className="px-2 py-1 bg-gray-700/50 text-gray-400 text-xs rounded-md">
+                            +{project.technologies.length - 3} more
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Project Stats */}
+                    <div className="flex items-center justify-between text-sm text-gray-400 pt-4 border-t border-gray-700/50">
+                      <div className="flex items-center space-x-3">
+                        <div className="flex items-center space-x-1">
+                          <MessageCircle className="h-4 w-4" />
+                          <span>{Math.floor(Math.random() * 20) + 5} reviews</span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <Star className="h-4 w-4 text-yellow-400" />
+                          <span>{(4 + Math.random()).toFixed(1)}</span>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2">
+                        {project.githubUrl && (
+                          <Github className="h-4 w-4 text-gray-400 hover:text-white transition-colors" />
+                        )}
+                        {project.liveUrl && (
+                          <ExternalLink className="h-4 w-4 text-gray-400 hover:text-white transition-colors" />
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           )}
 
-          <div className="text-center space-y-4">
-            <Link to="/projects">
-              <Button size="lg" variant="outline" className="px-8 mr-4">
-                <Eye className="mr-2 h-5 w-5" />
-                View All Projects
-              </Button>
-            </Link>
-            <Link to="/signup">
-              <Button size="lg" className="px-8">
-                <Code className="mr-2 h-5 w-5" />
-                Share Your Project
-              </Button>
-            </Link>
+          <div className="text-center">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+              <Link to="/projects">
+                <Button 
+                  size="lg" 
+                  variant="outline" 
+                  leftIcon={<Eye className="h-5 w-5" />}
+                  className="w-full sm:w-auto px-8"
+                >
+                  View All Projects
+                </Button>
+              </Link>
+              <Link to="/signup">
+                <Button 
+                  size="lg" 
+                  leftIcon={<Code className="h-5 w-5" />}
+                  className="w-full sm:w-auto px-8"
+                >
+                  Share Your Project
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </section>
@@ -556,7 +560,7 @@ const HomePage: React.FC = () => {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 mb-12">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 mb-12">
             {formatEventsForDisplay(events).map((event, index) => (
               <Card key={index} hover>
                 <CardContent className="p-6">
@@ -601,12 +605,27 @@ const HomePage: React.FC = () => {
           </div>
 
           <div className="text-center">
-            <Link to="/signup">
-              <Button size="lg" variant="outline" className="px-8">
-                <Calendar className="mr-2 h-5 w-5" />
-                Browse All Events
-              </Button>
-            </Link>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+              <Link to="/events">
+                <Button 
+                  size="lg" 
+                  variant="outline" 
+                  leftIcon={<Calendar className="h-5 w-5" />}
+                  className="w-full sm:w-auto px-8"
+                >
+                  View All Events
+                </Button>
+              </Link>
+              <Link to="/signup">
+                <Button 
+                  size="lg" 
+                  leftIcon={<Users className="h-5 w-5" />}
+                  className="w-full sm:w-auto px-8"
+                >
+                  Join Community
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </section>
@@ -624,7 +643,7 @@ const HomePage: React.FC = () => {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 mb-12">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 mb-12">
             {formatJobsForDisplay(jobs).map((job, index) => (
               <Card key={index} hover>
                 <CardContent className="p-6">
@@ -671,12 +690,27 @@ const HomePage: React.FC = () => {
           </div>
 
           <div className="text-center">
-            <Link to="/signup">
-              <Button size="lg" className="px-8">
-                <Briefcase className="mr-2 h-5 w-5" />
-                Explore All Jobs
-              </Button>
-            </Link>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+              <Link to="/jobs">
+                <Button 
+                  size="lg" 
+                  variant="outline" 
+                  leftIcon={<Briefcase className="h-5 w-5" />}
+                  className="w-full sm:w-auto px-8"
+                >
+                  View All Jobs
+                </Button>
+              </Link>
+              <Link to="/signup">
+                <Button 
+                  size="lg" 
+                  leftIcon={<Target className="h-5 w-5" />}
+                  className="w-full sm:w-auto px-8"
+                >
+                  Start Applying
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </section>
@@ -693,7 +727,7 @@ const HomePage: React.FC = () => {
             </p>
           </div>
           
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
             {/* Sarah's Story */}
             <Card hover className="bg-gray-800/50 backdrop-blur-sm">
               <CardContent className="p-6">
@@ -782,8 +816,11 @@ const HomePage: React.FC = () => {
           <div className="text-center mt-12">
             <p className="text-gray-400 mb-6">Join 13,000+ members who are already accelerating their tech careers</p>
             <Link to="/signup">
-              <Button size="lg" className="px-8">
-                <Rocket className="mr-2 h-5 w-5" />
+              <Button 
+                size="lg" 
+                leftIcon={<Rocket className="h-5 w-5" />}
+                className="px-8"
+              >
                 Start Your Success Story
               </Button>
             </Link>
@@ -793,49 +830,191 @@ const HomePage: React.FC = () => {
 
 
 
-      {/* Career Paths Section */}
-      <section className="py-20 bg-gray-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-white mb-4">
+      {/* Career Paths Section - Enhanced */}
+      <section className="relative py-24 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 overflow-hidden">
+        {/* Background Pattern */}
+        <div className="absolute inset-0 opacity-30">
+          <div className="absolute top-0 left-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-0 right-0 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl"></div>
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-green-500/5 rounded-full blur-2xl"></div>
+        </div>
+
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Enhanced Header */}
+          <div className="text-center mb-20">
+            <div className="inline-flex items-center px-4 py-2 bg-blue-500/10 border border-blue-500/20 rounded-full text-blue-400 text-sm font-medium mb-6">
+              <Target className="h-4 w-4 mr-2" />
+              Choose Your Path
+            </div>
+            <h2 className="text-5xl font-bold bg-gradient-to-r from-white via-gray-100 to-gray-300 bg-clip-text text-transparent mb-6">
               Chart Your Career Path
             </h2>
-            <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-              Interactive roadmaps to guide your journey from beginner to expert in your chosen tech field.
+            <p className="text-xl text-gray-300 max-w-4xl mx-auto leading-relaxed">
+              Interactive roadmaps to guide your journey from beginner to expert in your chosen tech field. 
+              <span className="text-blue-400 font-medium"> Join thousands who've already transformed their careers.</span>
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 mb-12">
-            {careerPaths.map((path, index) => (
-              <CareerPathCard
-                key={index}
-                id={path.title.toLowerCase().replace(/\s+/g, '-')}
-                title={path.title}
-                icon={path.icon}
-                color={path.color}
-                bgColor={path.bgColor}
-                borderColor="border-gray-600"
-                description={`Master ${path.title} with our comprehensive roadmap and join thousands of successful professionals.`}
-                skills={path.skills}
-                roles={[`Junior ${path.title}`, `Senior ${path.title}`, `${path.title} Lead`]}
-                averageSalary={path.salary}
-                demandLevel={path.demand}
-                category="Development"
-                                 salaryMin={parseInt(path.salary.split('-')[0].replace(/\D/g, '')) * 1000}
-                 salaryMax={parseInt(path.salary.split('-')[1].replace(/\D/g, '')) * 1000}
-                 onExplore={(id) => window.location.href = `/career-path`}
-                 isCompact={true}
-              />
-            ))}
+          {/* Career Path Cards - Styled like "How We Help" section */}
+          <div className="career-path-cards grid lg:grid-cols-3 md:grid-cols-2 gap-8 mb-16">
+            {careerPaths.map((path, index) => {
+              const Icon = path.icon;
+              // Map path colors to glow colors for GlowCard
+              const glowColor = index === 0 ? 'blue' : index === 1 ? 'green' : 'orange';
+              
+              return (
+                <div 
+                  key={index}
+                  className="animate-fade-in-up cursor-pointer transition-all duration-300 hover:scale-[1.02]"
+                  onClick={() => window.location.href = `/career-path`}
+                >
+                  <GlowCard 
+                    glowColor={glowColor}
+                    customSize={true}
+                    className="h-full min-h-[450px] bg-gray-900/50 backdrop-blur-sm"
+                  >
+                    <div className="flex flex-col h-full p-6">
+                      {/* Header Section */}
+                      <div className="mb-6">
+                        <div className={`w-16 h-16 rounded-full ${path.bgColor} border border-gray-600/30 flex items-center justify-center mb-4 transition-transform group-hover:scale-110`}>
+                          <Icon className={`h-8 w-8 ${path.color}`} />
+                        </div>
+                        <h3 className="text-2xl font-bold text-white mb-3">
+                          {path.title}
+                        </h3>
+                        <p className="text-gray-300 text-sm leading-relaxed mb-4">
+                          Master {path.title} with our comprehensive roadmap and join thousands of successful professionals in this high-demand field.
+                        </p>
+
+                        {/* Demand Level Badge */}
+                        <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-gray-700/50 border border-gray-600/30 mb-4">
+                          <span className="text-sm">
+                            {path.demand === 'Extremely High' ? '🔥' : path.demand === 'Very High' ? '⚡' : '📈'}
+                          </span>
+                          <span className={`text-sm font-medium ${path.color}`}>{path.demand} Demand</span>
+                        </div>
+
+                        {/* Skills Preview */}
+                        <div className="flex flex-wrap gap-2 mb-4">
+                          {path.skills.slice(0, 3).map((skill, skillIndex) => (
+                            <span 
+                              key={skillIndex}
+                              className="px-2 py-1 bg-gray-700/50 border border-gray-600/30 rounded-md text-xs text-gray-300"
+                            >
+                              {skill}
+                            </span>
+                          ))}
+                          {path.skills.length > 3 && (
+                            <span className="px-2 py-1 bg-gray-700/50 border border-gray-600/30 rounded-md text-xs text-gray-400">
+                              +{path.skills.length - 3} more
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Salary Info */}
+                        <div className="flex items-center justify-between text-sm mb-4">
+                          <div className="text-gray-400">Average Salary</div>
+                          <div className="font-semibold text-white">{path.avgSalary}</div>
+                        </div>
+                      </div>
+
+                      {/* Footer Section */}
+                      <div className="mt-auto">
+                        <div className="flex items-center text-green-400 font-semibold mb-3">
+                          <ArrowRight className="h-4 w-4 mr-2" />
+                          Interactive roadmap included
+                        </div>
+                        
+                        {/* Action Buttons */}
+                        <div className="space-y-2">
+                          <button 
+                            className={`w-full py-2 px-4 rounded-lg font-medium text-sm transition-colors ${path.bgColor} ${path.color} border border-gray-600/30 hover:border-gray-500/50`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.location.href = `/career-path`;
+                            }}
+                          >
+                            <Target className="h-4 w-4 mr-2 inline" />
+                            Explore Path
+                          </button>
+                          <button 
+                            className="w-full py-2 px-4 rounded-lg font-medium text-sm text-gray-400 hover:text-white border border-gray-600/30 hover:border-gray-500/50 transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.location.href = `/jobs?category=Development&skills=${encodeURIComponent(path.skills.join(','))}`;
+                            }}
+                          >
+                            <Briefcase className="h-4 w-4 mr-2 inline" />
+                            View Jobs
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </GlowCard>
+                </div>
+              );
+            })}
           </div>
 
+          {/* Success Stats Row */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-12">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-blue-500/10 border border-blue-500/20 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                <Users className="h-8 w-8 text-blue-400" />
+              </div>
+              <div className="text-2xl font-bold text-white mb-1">13,000+</div>
+              <div className="text-gray-400 text-sm">Active Learners</div>
+            </div>
+            <div className="text-center">
+              <div className="w-16 h-16 bg-green-500/10 border border-green-500/20 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                <Briefcase className="h-8 w-8 text-green-400" />
+              </div>
+              <div className="text-2xl font-bold text-white mb-1">87%</div>
+              <div className="text-gray-400 text-sm">Job Success Rate</div>
+            </div>
+            <div className="text-center">
+              <div className="w-16 h-16 bg-purple-500/10 border border-purple-500/20 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                <Star className="h-8 w-8 text-purple-400" />
+              </div>
+              <div className="text-2xl font-bold text-white mb-1">4.9/5</div>
+              <div className="text-gray-400 text-sm">Average Rating</div>
+            </div>
+            <div className="text-center">
+              <div className="w-16 h-16 bg-orange-500/10 border border-orange-500/20 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                <Clock className="h-8 w-8 text-orange-400" />
+              </div>
+              <div className="text-2xl font-bold text-white mb-1">6-12</div>
+              <div className="text-gray-400 text-sm">Months to Career</div>
+            </div>
+          </div>
+
+          {/* Enhanced CTA */}
           <div className="text-center">
-            <Link to="/signup">
-              <Button size="lg" variant="outline" className="px-8">
-                <TrendingUp className="mr-2 h-5 w-5" />
-                Explore All Paths
-              </Button>
-            </Link>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-6">
+              <Link to="/career-path">
+                <Button 
+                  size="lg" 
+                  leftIcon={<TrendingUp className="h-5 w-5" />}
+                  className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold text-lg shadow-lg shadow-blue-500/25"
+                >
+                  Explore All Career Paths
+                </Button>
+              </Link>
+              <Link to="/signup">
+                <Button 
+                  size="lg" 
+                  variant="outline" 
+                  leftIcon={<Rocket className="h-5 w-5" />}
+                  className="w-full sm:w-auto px-8 py-4 border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white font-semibold text-lg"
+                >
+                  Start Your Journey
+                </Button>
+              </Link>
+            </div>
+            <p className="text-gray-400 mt-6 text-lg">
+              <span className="text-green-400 font-medium">Free to start</span> • No credit card required • 
+              <span className="text-blue-400 font-medium"> Join 500+ companies</span> hiring from our community
+            </p>
           </div>
         </div>
       </section>
@@ -940,8 +1119,12 @@ const HomePage: React.FC = () => {
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
             <Link to="/signup">
-              <Button size="lg" className="bg-white text-blue-600 hover:bg-gray-100 w-full sm:w-auto px-8 py-4 text-lg font-semibold">
-                <Target className="mr-2 h-5 w-5" />
+              <Button 
+                variant="secondary" 
+                size="lg" 
+                leftIcon={<Target className="h-5 w-5" />}
+                className="!bg-white !text-blue-600 hover:!bg-gray-100 !border-white w-full sm:w-auto px-8 py-4 text-lg font-semibold"
+              >
                 Start Achieving Your Goals
               </Button>
             </Link>

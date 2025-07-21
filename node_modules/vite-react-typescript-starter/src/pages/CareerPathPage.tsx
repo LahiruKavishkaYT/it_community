@@ -48,7 +48,7 @@ const CareerPathPage: React.FC = () => {
     const mindmapPaths = [
       'frontend', 'backend', 'devops', 'fullstack', 'ai-engineer', 
       'data-scientist', 'data-analyst', 'android-developer', 'ios-developer', 
-      'blockchain-developer'
+      'blockchain-developer', 'test data'
     ];
     
     if (mindmapPaths.includes(pathId)) {
